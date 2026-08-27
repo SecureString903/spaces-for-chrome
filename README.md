@@ -61,7 +61,13 @@ shared/constants.js    Palette and shared constants
 scripts/gen-icons.ps1  Regenerates icons/*.png
 ```
 
+## Options
+
+The gear icon in the panel (or the extension's Options entry) opens the
+options page: bookmarks bar behavior (swap on switch / follow focused
+window / off), lazy-load toggle, and how many backups to keep. A welcome
+page opens once on first install.
+
 ## Roadmap
 
-- Onboarding & options page (incl. optional focus-follow bookmark bar)
 - Chrome Web Store packaging (icons/screenshots/privacy policy)

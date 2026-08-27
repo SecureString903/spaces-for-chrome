@@ -17,7 +17,8 @@ import {
   getSpaceTabs,
   setSpaceTabs,
   captureWindow,
-  pushBackup
+  pushBackup,
+  getSettings
 } from './state.js';
 import { switching, snapshotNow } from './tracker.js';
 import { swapBars } from './bookmarks.js';
@@ -97,8 +98,10 @@ export async function switchSpace(windowId, targetSpaceId) {
     if (oldIds.length) await chrome.tabs.remove(oldIds).catch(() => {});
 
     // 5. Lazy-load: discard everything except the active tab.
-    for (let i = 0; i < created.length; i++) {
-      if (i !== activeIndex) discardWhenCommitted(created[i].id);
+    if ((await getSettings()).lazyLoad) {
+      for (let i = 0; i < created.length; i++) {
+        if (i !== activeIndex) discardWhenCommitted(created[i].id);
+      }
     }
 
     map[windowId] = targetSpaceId;
@@ -160,6 +163,7 @@ export async function openTabsInNewWindow(tabs) {
   if (tabs[0].pinned && firstTab) {
     await chrome.tabs.update(firstTab.id, { pinned: true }).catch(() => {});
   }
+  const { lazyLoad } = await getSettings();
   for (let i = 1; i < tabs.length; i++) {
     const t = tabs[i];
     let tab = null;
@@ -168,7 +172,7 @@ export async function openTabsInNewWindow(tabs) {
     } catch {
       tab = await chrome.tabs.create({ windowId: win.id, active: false }).catch(() => null);
     }
-    if (tab) discardWhenCommitted(tab.id);
+    if (tab && lazyLoad) discardWhenCommitted(tab.id);
   }
   return win.id;
 }

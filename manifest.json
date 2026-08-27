@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Spaces — Workspaces for Chrome",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Save your window's tabs into named Spaces and swap between them instantly. Work, personal, projects — one clean window per context.",
   "minimum_chrome_version": "116",
   "permissions": ["tabs", "storage", "sidePanel", "favicon", "bookmarks"],
@@ -11,6 +11,10 @@
   },
   "side_panel": {
     "default_path": "sidepanel/sidepanel.html"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
   },
   "action": {
     "default_title": "Open Spaces",

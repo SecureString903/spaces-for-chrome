@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Welcome to Spaces</title>
+  <link rel="stylesheet" href="../shared/page.css" />
+  <link rel="stylesheet" href="welcome.css" />
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <img src="../icons/icon128.png" alt="Spaces icon" />
+      <h1>Welcome to Spaces</h1>
+      <p>One clean window per context — work, personal, projects. Your current window is already saved as the <strong>General</strong> Space.</p>
+      <div class="hero-actions">
+        <button id="open-panel-btn" class="primary-btn">Open the Spaces panel</button>
+        <button id="options-btn" class="ghost-btn">Options</button>
+      </div>
+    </div>
+
+    <div class="steps">
+      <section class="card step">
+        <div class="step-num">1</div>
+        <div>
+          <h2>Everything lives in the side panel</h2>
+          <p>Click the Spaces icon in the toolbar to open it (pin the icon for one-click access). Create a Space for each context, then click a Space to switch — your tabs are saved and swapped in place.</p>
+        </div>
+      </section>
+
+      <section class="card step">
+        <div class="step-num">2</div>
+        <div>
+          <h2>Switch from the keyboard</h2>
+          <p><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> jumps to the next Space, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>,</kbd> to the previous. Customize both at <span class="mono">chrome://extensions/shortcuts</span>.</p>
+        </div>
+      </section>
+
+      <section class="card step">
+        <div class="step-num">3</div>
+        <div>
+          <h2>Each Space has its own bookmarks bar</h2>
+          <p>Switching Spaces also swaps the bookmarks bar. Bookmarks are moved into hidden folders under <em>Other Bookmarks → Spaces</em> — never copied, never deleted. Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> if your bar is hidden.</p>
+        </div>
+      </section>
+
+      <section class="card step">
+        <div class="step-num">4</div>
+        <div>
+          <h2>Your tabs are never lost</h2>
+          <p>The active Space saves itself continuously, and every switch keeps a backup of what it replaced. The Backups section at the bottom of the panel can reopen any of them.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script type="module" src="welcome.js"></script>
+</body>
+</html>

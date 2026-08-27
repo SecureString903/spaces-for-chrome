@@ -287,6 +287,49 @@ main {
   border-color: var(--text);
 }
 
+.custom-swatch-wrap {
+  display: inline-flex;
+  border-radius: 9px;
+  padding: 2px;
+  background: conic-gradient(#ef4444, #f59e0b, #22c55e, #3b82f6, #a855f7, #ef4444);
+}
+
+.custom-swatch-wrap.selected {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
+.custom-swatch {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: none;
+}
+
+.custom-swatch::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.custom-swatch::-webkit-color-swatch {
+  border: none;
+  border-radius: 6px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.icon-btn.always-visible {
+  opacity: 1;
+  font-size: 15px;
+}
+
 .editor-actions {
   display: flex;
   gap: 8px;

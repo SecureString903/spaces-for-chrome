@@ -14,5 +14,3 @@ export const PALETTE = [
 ];
 
 export const DEFAULT_SPACE_NAME = 'General';
-
-export const MAX_BACKUPS = 15;

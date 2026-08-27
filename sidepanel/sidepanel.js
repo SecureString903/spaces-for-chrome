@@ -121,7 +121,7 @@ async function onSpaceClick(space) {
 async function saveEditor(form) {
   const name = form.querySelector('.name-input').value;
   const emoji = form.querySelector('.emoji-input').value;
-  const color = form.querySelector('.swatch.selected')?.dataset.hex ?? PALETTE[0].hex;
+  const color = form.dataset.color || PALETTE[0].hex;
   if (editingSpaceId === 'new') {
     const adopt = form.querySelector('.adopt-check')?.checked;
     const result = await send({
@@ -201,23 +201,38 @@ function renderBanner() {
 
 function renderEditor(space = null) {
   const isNew = editingSpaceId === 'new';
-  const selectedColor = space?.color ?? PALETTE[appState.spaces.length % PALETTE.length].hex;
+  const initialColor = space?.color ?? PALETTE[appState.spaces.length % PALETTE.length].hex;
+  const isPreset = (hex) => PALETTE.some((p) => p.hex.toLowerCase() === hex.toLowerCase());
 
   const swatches = el('div', { class: 'swatches' });
+  const setColor = (hex) => {
+    form.dataset.color = hex;
+    swatches.querySelectorAll('.swatch[data-hex]').forEach((s) => {
+      s.classList.toggle('selected', s.dataset.hex.toLowerCase() === hex.toLowerCase());
+    });
+    const custom = !isPreset(hex);
+    customWrap.classList.toggle('selected', custom);
+    if (custom) customInput.value = hex;
+  };
   for (const { hex } of PALETTE) {
-    const btn = el('button', {
+    swatches.append(el('button', {
       type: 'button',
-      class: 'swatch' + (hex === selectedColor ? ' selected' : ''),
+      class: 'swatch',
       style: `background:${hex}`,
       dataset: { hex },
       title: hex,
-      onclick: (e) => {
-        swatches.querySelectorAll('.swatch').forEach((s) => s.classList.remove('selected'));
-        e.currentTarget.classList.add('selected');
-      }
-    });
-    swatches.append(btn);
+      onclick: () => setColor(hex)
+    }));
   }
+  const customInput = el('input', {
+    type: 'color',
+    class: 'custom-swatch',
+    value: isPreset(initialColor) ? '#94a3b8' : initialColor,
+    title: 'Custom color — the picker accepts hex and RGB',
+    oninput: (e) => setColor(e.target.value)
+  });
+  const customWrap = el('span', { class: 'custom-swatch-wrap', title: 'Custom color' }, customInput);
+  swatches.append(customWrap);
 
   const form = el('div', { class: 'editor' },
     el('div', { class: 'row' },
@@ -267,6 +282,7 @@ function renderEditor(space = null) {
     }
   });
 
+  setColor(initialColor);
   return form;
 }
 
@@ -493,6 +509,7 @@ function scheduleRender() {
 }
 
 function initListeners() {
+  $('#options-btn').addEventListener('click', () => chrome.runtime.openOptionsPage());
   $('#new-space-btn').addEventListener('click', () => {
     editingSpaceId = 'new';
     render();

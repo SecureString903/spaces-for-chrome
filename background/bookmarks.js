@@ -11,7 +11,7 @@
 // ARE the bar). Stashing appends, so even if the invariant breaks (crash
 // mid-swap, manual edits) the result is a harmless merge.
 
-import { getSpaces } from './state.js';
+import { getSpaces, getSettings } from './state.js';
 
 const K_FOLDERS = 'bookmarkFolders'; // spaceId -> folderId
 const K_BAR_OWNER = 'barSpaceId'; // which Space's bookmarks are on the bar
@@ -90,6 +90,7 @@ export function setBarOwner(spaceId) {
 export function swapBars(fallbackOwnerId, targetSpaceId) {
   return enqueue(async () => {
     try {
+      if ((await getSettings()).bookmarkMode === 'off') return;
       const { [K_BAR_OWNER]: recorded } = await chrome.storage.local.get(K_BAR_OWNER);
       const owner = recorded ?? fallbackOwnerId ?? null;
       if (owner === targetSpaceId) {

@@ -4,12 +4,15 @@ import { PALETTE, DEFAULT_SPACE_NAME } from '../shared/constants.js';
 import * as state from './state.js';
 import { initTracker } from './tracker.js';
 import { switchSpace, cycleSpace, openTabsInNewWindow } from './switcher.js';
-import { setBarOwner, renameSpaceFolder, onSpaceDeleted } from './bookmarks.js';
+import { setBarOwner, renameSpaceFolder, onSpaceDeleted, swapBars } from './bookmarks.js';
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 initTracker();
 
-chrome.runtime.onInstalled.addListener(async () => {
+chrome.runtime.onInstalled.addListener(async (details) => {
+  if (details.reason === 'install') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('onboarding/welcome.html') }).catch(() => {});
+  }
   const spaces = await state.getSpaces();
   if (spaces.length) return;
   // First install: adopt the focused window into a default Space so the
@@ -71,6 +74,21 @@ chrome.runtime.onStartup.addListener(reassociateWindows);
 // reload/update, where onStartup never fires but the session map is gone.
 // The empty-map guard makes routine worker wake-ups a no-op.
 reassociateWindows();
+
+// Optional "follow focus" bookmark mode: when the user focuses a window in
+// a different Space, bring that Space's bookmarks onto the bar.
+chrome.windows.onFocusChanged.addListener(async (windowId) => {
+  if (windowId === chrome.windows.WINDOW_ID_NONE) return;
+  try {
+    const settings = await state.getSettings();
+    if (settings.bookmarkMode !== 'follow') return;
+    const map = await state.getWinMap();
+    const spaceId = map[windowId];
+    if (spaceId) swapBars(null, spaceId);
+  } catch (e) {
+    console.warn('Spaces: focus-follow bookmark swap failed', e);
+  }
+});
 
 chrome.windows.onRemoved.addListener(async (windowId) => {
   const map = await state.getWinMap();

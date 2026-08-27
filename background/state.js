@@ -8,11 +8,21 @@
 //   service-worker restarts but not browser restarts (index.js re-associates
 //   windows to Spaces on startup).
 
-import { MAX_BACKUPS } from '../shared/constants.js';
-
 const K_SPACES = 'spaces';
 const K_WINMAP = 'winmap';
 const K_BACKUPS = 'backups';
+const K_SETTINGS = 'settings';
+
+export const DEFAULT_SETTINGS = {
+  bookmarkMode: 'switch', // 'switch' | 'follow' | 'off'
+  lazyLoad: true,
+  maxBackups: 15
+};
+
+export async function getSettings() {
+  const { [K_SETTINGS]: settings = {} } = await chrome.storage.sync.get(K_SETTINGS);
+  return { ...DEFAULT_SETTINGS, ...settings };
+}
 
 const tabsKey = (spaceId) => `tabs:${spaceId}`;
 
@@ -85,9 +95,10 @@ export async function captureWindow(windowId, prev = null) {
 // replaced or deleted, so a bad switch never silently loses tabs.
 export async function pushBackup(label, snapshot) {
   if (!snapshot.tabs.length) return;
+  const { maxBackups } = await getSettings();
   const { [K_BACKUPS]: backups = [] } = await chrome.storage.local.get(K_BACKUPS);
   backups.unshift({ label, at: Date.now(), tabs: snapshot.tabs });
-  await chrome.storage.local.set({ [K_BACKUPS]: backups.slice(0, MAX_BACKUPS) });
+  await chrome.storage.local.set({ [K_BACKUPS]: backups.slice(0, Math.max(0, maxBackups)) });
 }
 
 export async function getBackups() {

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spaces — Options</title>
+  <link rel="stylesheet" href="../shared/page.css" />
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="page-header">
+      <img src="../icons/icon128.png" alt="" />
+      <div>
+        <h1>Spaces Options</h1>
+        <p class="subtitle">Changes are saved automatically.</p>
+      </div>
+    </header>
+
+    <section class="card">
+      <h2>Bookmarks bar</h2>
+      <p>Chrome has a single bookmarks bar shared by all windows, so it can only show one Space's bookmarks at a time.</p>
+      <label class="radio-row">
+        <input type="radio" name="bookmarkMode" value="switch" />
+        <span>
+          <strong>Swap on switch</strong>
+          <span class="hint">The bar shows the Space you most recently switched to. Recommended for single-window use.</span>
+        </span>
+      </label>
+      <label class="radio-row">
+        <input type="radio" name="bookmarkMode" value="follow" />
+        <span>
+          <strong>Follow the focused window</strong>
+          <span class="hint">Focusing a window also brings its Space's bookmarks onto the bar. Best with multiple windows; the bar changes more often.</span>
+        </span>
+      </label>
+      <label class="radio-row">
+        <input type="radio" name="bookmarkMode" value="off" />
+        <span>
+          <strong>Don't manage bookmarks</strong>
+          <span class="hint">Leave the bookmarks bar alone entirely. Space folders under Other Bookmarks → Spaces stay as they are.</span>
+        </span>
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Performance</h2>
+      <label class="radio-row">
+        <input type="checkbox" id="lazyLoad" />
+        <span>
+          <strong>Lazy-load restored tabs</strong>
+          <span class="hint">Tabs from a restored Space stay unloaded until you click them. Turn off to load every tab immediately on switch.</span>
+        </span>
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Backups</h2>
+      <p>Tab lists are saved automatically before every switch and deletion.</p>
+      <label class="number-row">
+        Keep the last
+        <input type="number" id="maxBackups" min="1" max="50" />
+        backups
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Keyboard shortcuts</h2>
+      <p><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> next Space · <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>,</kbd> previous Space</p>
+      <button id="shortcuts-btn" class="ghost-btn">Customize shortcuts</button>
+    </section>
+
+    <p class="muted" id="version"></p>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <script type="module" src="options.js"></script>
+</body>
+</html>
