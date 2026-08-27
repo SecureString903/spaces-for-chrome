@@ -2,7 +2,7 @@
 
 import { PALETTE, DEFAULT_SPACE_NAME } from '../shared/constants.js';
 import * as state from './state.js';
-import { initTracker } from './tracker.js';
+import { initTracker, switching } from './tracker.js';
 import { switchSpace, cycleSpace, openTabsInNewWindow } from './switcher.js';
 import { setBarOwner, renameSpaceFolder, onSpaceDeleted, swapBars } from './bookmarks.js';
 
@@ -95,6 +95,41 @@ chrome.windows.onRemoved.addListener(async (windowId) => {
   if (map[windowId]) {
     delete map[windowId];
     await state.setWinMap(map);
+  }
+});
+
+// Optional: keep a Space's window open when its last tab is closed.
+// Closing a tab directly reports isWindowClosing=false even when it's the
+// last one — the window teardown is deferred a beat, which lets us slip a
+// replacement tab in. Closing the whole window (✕ / Ctrl+Shift+W) reports
+// isWindowClosing=true and is left alone.
+chrome.tabs.onRemoved.addListener(async (tabId, info) => {
+  if (info.isWindowClosing) return;
+  try {
+    const settings = await state.getSettings();
+    if (!settings.keepWindowOpen) return;
+    if (switching.has(info.windowId)) return;
+    const map = await state.getWinMap();
+    const spaceId = map[info.windowId];
+    if (!spaceId) return;
+    const remaining = await chrome.tabs.query({ windowId: info.windowId }).catch(() => null);
+    if (!remaining || remaining.length > 0) return;
+    const url = settings.homepageUrl || undefined;
+    try {
+      await chrome.tabs.create({ windowId: info.windowId, url });
+    } catch {
+      // Lost the race — the window already closed. Resurrect it for the
+      // same Space with just the homepage.
+      const win = await chrome.windows.create({ url, focused: true }).catch(() => null);
+      if (win) {
+        const freshMap = await state.getWinMap();
+        delete freshMap[info.windowId];
+        freshMap[win.id] = spaceId;
+        await state.setWinMap(freshMap);
+      }
+    }
+  } catch (e) {
+    console.warn('Spaces: keep-window-open failed', e);
   }
 });
 

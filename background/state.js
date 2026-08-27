@@ -16,7 +16,9 @@ const K_SETTINGS = 'settings';
 export const DEFAULT_SETTINGS = {
   bookmarkMode: 'switch', // 'switch' | 'follow' | 'off'
   lazyLoad: true,
-  maxBackups: 15
+  maxBackups: 15,
+  keepWindowOpen: false,
+  homepageUrl: '' // empty = Chrome's New Tab page
 };
 
 export async function getSettings() {

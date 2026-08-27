@@ -65,8 +65,9 @@ scripts/gen-icons.ps1  Regenerates icons/*.png
 
 The gear icon in the panel (or the extension's Options entry) opens the
 options page: bookmarks bar behavior (swap on switch / follow focused
-window / off), lazy-load toggle, and how many backups to keep. A welcome
-page opens once on first install.
+window / off), lazy-load toggle, keep-window-open-on-last-tab-close with
+a configurable homepage, and how many backups to keep. A welcome page
+opens once on first install.
 
 ## Roadmap
 
