@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spaces</title>
+  <link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-title">
+      <img src="../icons/icon32.png" alt="" width="20" height="20" />
+      <h1>Spaces</h1>
+    </div>
+    <div id="current-chip" class="current-chip" hidden></div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <main>
+    <section class="section">
+      <div class="section-head">
+        <h2>Your Spaces</h2>
+      </div>
+      <ul id="space-list" class="space-list"></ul>
+      <div id="editor-slot"></div>
+      <button id="new-space-btn" class="ghost-btn">＋ New Space</button>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Tabs in this window</h2>
+        <span id="tab-count" class="muted"></span>
+      </div>
+      <ul id="tab-list" class="tab-list"></ul>
+    </section>
+  </main>
+
+  <dialog id="confirm-dialog" class="confirm-dialog">
+    <p id="confirm-text"></p>
+    <div class="dialog-actions">
+      <button id="confirm-cancel" class="ghost-btn">Cancel</button>
+      <button id="confirm-ok" class="primary-btn">Confirm</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>
