@@ -152,8 +152,6 @@ chrome.windows.onCreated.addListener((win) => {
 const pendingKeepAlive = new Map();
 
 chrome.tabs.onRemoved.addListener((tabId, info) => {
-  console.log('Spaces: tab removed', tabId, 'window', info.windowId,
-    'isWindowClosing', info.isWindowClosing, 'knownCount', tabCounts.get(info.windowId));
   if (info.isWindowClosing) return;
   const known = tabCounts.get(info.windowId);
   const remaining = known !== undefined ? Math.max(0, known - 1) : undefined;
@@ -169,8 +167,7 @@ chrome.tabs.onRemoved.addListener((tabId, info) => {
       windowId: info.windowId,
       url: cachedSettings.homepageUrl || undefined
     })
-      .then((tab) => {
-        console.log('Spaces: keep-window-open created tab', tab.id, 'in window', info.windowId);
+      .then(() => {
         // Window confirmed alive shortly after -> clear the resurrection
         // marker so a genuine window close isn't undone.
         setTimeout(async () => {
@@ -205,7 +202,6 @@ async function keepWindowOpen(windowId, remainingHint) {
     pendingKeepAlive.set(windowId, Date.now());
     const url = cachedSettings.homepageUrl || undefined;
     const tab = await chrome.tabs.create({ windowId, url }).catch(() => null);
-    console.log('Spaces: keep-window-open created tab', tab?.id, 'in window', windowId);
     if (tab) {
       // If the window actually survived, clear the marker so a real window
       // close shortly after isn't resurrected.
@@ -262,7 +258,6 @@ async function resurrectIfMarked(windowId) {
   if (win && (bounds?.state === 'maximized' || bounds?.state === 'fullscreen')) {
     await chrome.windows.update(win.id, { state: 'maximized' }).catch(() => {});
   }
-  console.log('Spaces: resurrected window', windowId, '->', win?.id, 'for space', spaceId);
   if (win && spaceId) {
     const freshMap = await state.getWinMap();
     delete freshMap[windowId];

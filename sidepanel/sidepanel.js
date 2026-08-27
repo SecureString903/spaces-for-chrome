@@ -210,7 +210,7 @@ function renderHeader() {
     !!(appState.icons?.[space.id] || space.emoji);
   chip.classList.toggle('icon-only', iconOnly);
   chip.replaceChildren(spaceIconEl(space));
-  if (!iconOnly) chip.append(el('span', {}, space.name));
+  if (!iconOnly) chip.append(el('span', { class: 'chip-name' }, space.name));
   chip.title = space.name;
 }
 
