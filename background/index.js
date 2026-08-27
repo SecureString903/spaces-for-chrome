@@ -127,6 +127,14 @@ const bumpCount = (windowId, delta) => {
 chrome.tabs.onCreated.addListener((tab) => bumpCount(tab.windowId, +1));
 chrome.tabs.onAttached.addListener((tabId, info) => bumpCount(info.newWindowId, +1));
 chrome.tabs.onDetached.addListener((tabId, info) => bumpCount(info.oldWindowId, -1));
+// Seed counts for windows created after service-worker start — without
+// this, new windows have no count and the fast path below can never run.
+chrome.windows.onCreated.addListener((win) => {
+  if (win.type !== 'normal') return;
+  chrome.tabs.query({ windowId: win.id })
+    .then((tabs) => tabCounts.set(win.id, tabs.length))
+    .catch(() => {});
+});
 
 // windowId -> timestamp of a direct (isWindowClosing=false) last-tab close.
 const pendingKeepAlive = new Map();
@@ -136,8 +144,32 @@ chrome.tabs.onRemoved.addListener((tabId, info) => {
     'isWindowClosing', info.isWindowClosing, 'knownCount', tabCounts.get(info.windowId));
   if (info.isWindowClosing) return;
   const known = tabCounts.get(info.windowId);
-  if (known !== undefined) tabCounts.set(info.windowId, Math.max(0, known - 1));
-  keepWindowOpen(info.windowId, known !== undefined ? known - 1 : undefined);
+  const remaining = known !== undefined ? Math.max(0, known - 1) : undefined;
+  if (known !== undefined) tabCounts.set(info.windowId, remaining);
+
+  // Fast path: the count says that was the last tab and everything needed
+  // is already in memory — call create with NO awaits in between, so it
+  // reaches the browser before window teardown commits and the window
+  // simply gets a fresh tab instead of closing.
+  if (remaining === 0 && cachedSettings?.keepWindowOpen && !switching.has(info.windowId)) {
+    pendingKeepAlive.set(info.windowId, Date.now());
+    chrome.tabs.create({
+      windowId: info.windowId,
+      url: cachedSettings.homepageUrl || undefined
+    })
+      .then((tab) => {
+        console.log('Spaces: keep-window-open created tab', tab.id, 'in window', info.windowId);
+        // Window confirmed alive shortly after -> clear the resurrection
+        // marker so a genuine window close isn't undone.
+        setTimeout(async () => {
+          const win = await chrome.windows.get(info.windowId).catch(() => null);
+          if (win) pendingKeepAlive.delete(info.windowId);
+        }, 500);
+      })
+      .catch(() => {});
+    return;
+  }
+  keepWindowOpen(info.windowId, remaining);
 });
 
 async function keepWindowOpen(windowId, remainingHint) {
