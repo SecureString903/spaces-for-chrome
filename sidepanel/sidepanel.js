@@ -2,9 +2,10 @@
 // live tab info for the current window directly from chrome.tabs.
 
 import { PALETTE } from '../shared/constants.js';
+import { EMOJI } from './emoji.js';
 
 let windowId = null;
-let appState = { spaces: [], winMap: {}, counts: {}, backups: [] };
+let appState = { spaces: [], winMap: {}, counts: {}, backups: [], icons: {}, settings: {} };
 let editingSpaceId = null; // null = no editor; 'new' = create form
 let dragSpaceId = null;
 const expandedBackups = new Set(); // backup `at` timestamps
@@ -35,11 +36,45 @@ function send(msg) {
   return chrome.runtime.sendMessage(msg);
 }
 
-function faviconUrl(pageUrl) {
+function faviconUrl(pageUrl, size = 16) {
   const url = new URL(chrome.runtime.getURL('/_favicon/'));
   url.searchParams.set('pageUrl', pageUrl);
-  url.searchParams.set('size', '16');
+  url.searchParams.set('size', String(size));
   return url.toString();
+}
+
+// Load any image source and normalize it into a 64x64 PNG data URL
+// (cover-fit), so Space icons are small, square, and self-contained.
+function imageToIcon(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const size = 64;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const scale = Math.max(size / img.width, size / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = () => reject(new Error('Image failed to load'));
+    img.src = src;
+  });
+}
+
+// Icon precedence: custom image > emoji > color dot.
+function spaceIconEl(space) {
+  const image = appState.icons?.[space.id];
+  if (image) return el('img', { class: 'space-icon-img', src: image, alt: '' });
+  if (space.emoji) return el('span', { class: 'space-emoji' }, space.emoji);
+  return el('span', { class: 'space-dot', style: `background:${space.color}` });
 }
 
 let toastTimer = null;
@@ -120,29 +155,23 @@ async function onSpaceClick(space) {
 
 async function saveEditor(form) {
   const name = form.querySelector('.name-input').value;
-  // Keep only the first grapheme cluster — one whole emoji, however many
-  // code units it takes (ZWJ sequences, flags, skin tones).
-  let emoji = form.querySelector('.emoji-input').value.trim();
-  if (emoji) {
-    emoji = [...new Intl.Segmenter().segment(emoji)][0]?.segment ?? '';
-  }
   const color = form.dataset.color || PALETTE[0].hex;
+  const icon = form._icon();
   if (editingSpaceId === 'new') {
     const adopt = form.querySelector('.adopt-check')?.checked;
     const result = await send({
       type: 'createSpace',
       name,
       color,
-      emoji,
+      emoji: icon.emoji,
+      iconData: icon.imageData || undefined,
       fromWindowId: adopt ? windowId : undefined
     });
     if (!result?.ok) toast(result?.error ?? 'Could not create Space');
   } else {
-    const result = await send({
-      type: 'updateSpace',
-      id: editingSpaceId,
-      patch: { name, color, emoji }
-    });
+    const patch = { name, color, emoji: icon.emoji };
+    if (icon.dirty) patch.iconData = icon.imageData ?? null;
+    const result = await send({ type: 'updateSpace', id: editingSpaceId, patch });
     if (!result?.ok) toast(result?.error ?? 'Could not save Space');
   }
   editingSpaceId = null;
@@ -171,17 +200,18 @@ async function deleteSpace(space) {
 function renderHeader() {
   const chip = $('#current-chip');
   const space = currentSpace();
-  if (space) {
-    chip.hidden = false;
-    chip.replaceChildren(
-      space.emoji
-        ? el('span', {}, space.emoji)
-        : el('span', { class: 'space-dot', style: `background:${space.color}` }),
-      el('span', {}, space.name)
-    );
-  } else {
+  if (!space) {
     chip.hidden = true;
+    return;
   }
+  chip.hidden = false;
+  const iconOnly =
+    (appState.settings?.chipStyle ?? 'name') === 'icon' &&
+    !!(appState.icons?.[space.id] || space.emoji);
+  chip.classList.toggle('icon-only', iconOnly);
+  chip.replaceChildren(spaceIconEl(space));
+  if (!iconOnly) chip.append(el('span', {}, space.name));
+  chip.title = space.name;
 }
 
 function renderBanner() {
@@ -239,17 +269,110 @@ function renderEditor(space = null) {
   const customWrap = el('span', { class: 'custom-swatch-wrap', title: 'Custom color' }, customInput);
   swatches.append(customWrap);
 
+  // ---- Icon (emoji / custom favicon) ----
+  let pendingEmoji = space?.emoji ?? '';
+  let pendingImage = space ? appState.icons?.[space.id] ?? null : null;
+  let iconDirty = false;
+  let pickerOpen = false;
+
+  const iconBtn = el('button', { type: 'button', class: 'icon-select-btn', title: 'Choose an icon' });
+  const refreshIconBtn = () => {
+    iconBtn.replaceChildren(
+      pendingImage
+        ? el('img', { class: 'space-icon-img', src: pendingImage, alt: '' })
+        : pendingEmoji
+          ? el('span', {}, pendingEmoji)
+          : el('span', { class: 'icon-placeholder' }, '🙂'),
+      el('span', { class: 'icon-caret' }, '▾')
+    );
+  };
+  const picker = el('div', { class: 'icon-popover', hidden: '' });
+  const syncPicker = () => (picker.hidden = !pickerOpen);
+  iconBtn.addEventListener('click', () => {
+    pickerOpen = !pickerOpen;
+    syncPicker();
+  });
+  const pickDone = () => {
+    iconDirty = true;
+    pickerOpen = false;
+    syncPicker();
+    refreshIconBtn();
+  };
+  const chooseEmoji = (e) => {
+    pendingEmoji = e;
+    pendingImage = null;
+    pickDone();
+  };
+  const chooseImage = (dataUrl) => {
+    pendingImage = dataUrl;
+    pendingEmoji = '';
+    pickDone();
+  };
+
+  const grid = el('div', { class: 'emoji-grid' });
+  for (const e of EMOJI) {
+    grid.append(el('button', { type: 'button', class: 'emoji-cell', onclick: () => chooseEmoji(e) }, e));
+  }
+  const fileInput = el('input', { type: 'file', accept: 'image/*', hidden: '' });
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () =>
+      imageToIcon(reader.result).then(chooseImage).catch(() => toast('Could not read that image'));
+    reader.readAsDataURL(file);
+    fileInput.value = '';
+  });
+  const siteInput = el('input', {
+    type: 'text',
+    class: 'site-input',
+    placeholder: 'example.com',
+    title: 'Uses Chrome’s favicon cache — works for sites you’ve visited'
+  });
+  const useSiteFavicon = async () => {
+    let url = siteInput.value.trim();
+    if (!url) return;
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = 'https://' + url;
+    try {
+      chooseImage(await imageToIcon(faviconUrl(url, 32)));
+    } catch {
+      toast('No favicon found for that site');
+    }
+  };
+  siteInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.stopPropagation();
+      useSiteFavicon();
+    }
+  });
+  picker.append(
+    grid,
+    el('div', { class: 'icon-actions' },
+      el('div', { class: 'row' },
+        el('span', { class: 'muted-label' }, 'Site favicon'),
+        siteInput,
+        el('button', { type: 'button', class: 'ghost-btn small', onclick: useSiteFavicon }, 'Use')
+      ),
+      el('div', { class: 'row' },
+        el('button', { type: 'button', class: 'ghost-btn small', onclick: () => fileInput.click() }, 'Upload image…'),
+        el('button', {
+          type: 'button',
+          class: 'ghost-btn small',
+          onclick: () => {
+            pendingEmoji = '';
+            pendingImage = null;
+            pickDone();
+          }
+        }, 'No icon'),
+        fileInput
+      )
+    )
+  );
+  refreshIconBtn();
+
   const form = el('div', { class: 'editor' },
     el('div', { class: 'row' },
-      el('input', {
-        type: 'text',
-        class: 'emoji-input',
-        placeholder: '🙂',
-        maxlength: '20',
-        value: space?.emoji ?? '',
-        title: 'Optional emoji icon — Win+. opens the emoji picker',
-        onfocus: (e) => e.target.select()
-      }),
+      iconBtn,
       el('input', {
         type: 'text',
         class: 'name-input',
@@ -258,6 +381,7 @@ function renderEditor(space = null) {
         value: space?.name ?? ''
       })
     ),
+    picker,
     swatches,
     isNew && !currentSpace()
       ? el('label', { class: 'row', style: 'font-size:12px; gap:6px; cursor:pointer' },
@@ -289,6 +413,7 @@ function renderEditor(space = null) {
   });
 
   setColor(initialColor);
+  form._icon = () => ({ emoji: pendingEmoji, imageData: pendingImage, dirty: iconDirty });
   return form;
 }
 
@@ -316,9 +441,7 @@ function renderSpaces() {
       title: isActive ? 'Current Space' : `Switch to ${space.name}`,
       onclick: () => onSpaceClick(space)
     },
-      space.emoji
-        ? el('span', { class: 'space-emoji' }, space.emoji)
-        : el('span', { class: 'space-dot', style: `background:${space.color}` }),
+      spaceIconEl(space),
       el('span', { class: 'space-name' }, space.name),
       el('span', { class: 'space-meta' },
         isActive ? 'current' : otherWindow ? 'other window ↗' : `${count} tab${count === 1 ? '' : 's'}`

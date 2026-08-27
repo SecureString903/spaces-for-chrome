@@ -293,7 +293,15 @@ async function handleMessage(msg) {
       for (const s of spaces) {
         counts[s.id] = (await state.getSpaceTabs(s.id)).tabs.length;
       }
-      return { ok: true, spaces, winMap: map, counts, backups: await state.getBackups() };
+      return {
+        ok: true,
+        spaces,
+        winMap: map,
+        counts,
+        backups: await state.getBackups(),
+        icons: await state.getIcons(),
+        settings: await state.getSettings()
+      };
     }
 
     case 'switchSpace':
@@ -310,6 +318,7 @@ async function handleMessage(msg) {
         order: spaces.length
       };
       await state.setSpaces([...spaces, space]);
+      if (msg.iconData) await state.setIcon(id, msg.iconData);
       if (msg.fromWindowId != null) {
         // "Save this window as a Space": adopt its live tabs.
         const map = await state.getWinMap();
@@ -329,6 +338,9 @@ async function handleMessage(msg) {
       if (typeof msg.patch?.color === 'string') space.color = msg.patch.color;
       if (typeof msg.patch?.emoji === 'string') space.emoji = msg.patch.emoji.trim();
       await state.setSpaces(spaces);
+      if (msg.patch && 'iconData' in msg.patch) {
+        await state.setIcon(space.id, msg.patch.iconData);
+      }
       if (space.name !== oldName) renameSpaceFolder(space.id, space.name);
       return { ok: true };
     }
@@ -350,6 +362,7 @@ async function handleMessage(msg) {
         spaces.filter((s) => s.id !== msg.id).map((s, i) => ({ ...s, order: i }))
       );
       await state.removeSpaceTabs(msg.id);
+      await state.setIcon(msg.id, null);
       await onSpaceDeleted(msg.id);
       return { ok: true };
     }

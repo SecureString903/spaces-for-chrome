@@ -18,7 +18,8 @@ export const DEFAULT_SETTINGS = {
   lazyLoad: true,
   maxBackups: 15,
   keepWindowOpen: false,
-  homepageUrl: '' // empty = Chrome's New Tab page
+  homepageUrl: '', // empty = Chrome's New Tab page
+  chipStyle: 'name' // 'name' | 'icon' — current-Space indicator in the panel
 };
 
 export async function getSettings() {
@@ -106,6 +107,22 @@ export async function pushBackup(label, snapshot) {
 export async function getBackups() {
   const { [K_BACKUPS]: backups = [] } = await chrome.storage.local.get(K_BACKUPS);
   return backups;
+}
+
+// Custom Space icons (data-URL images). Stored in local storage — sync's
+// 8KB-per-item quota can't hold image data.
+const K_ICONS = 'spaceIcons';
+
+export async function getIcons() {
+  const { [K_ICONS]: icons = {} } = await chrome.storage.local.get(K_ICONS);
+  return icons;
+}
+
+export async function setIcon(spaceId, dataUrl) {
+  const icons = await getIcons();
+  if (dataUrl) icons[spaceId] = dataUrl;
+  else delete icons[spaceId];
+  await chrome.storage.local.set({ [K_ICONS]: icons });
 }
 
 export async function removeBackup(at) {

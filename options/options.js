@@ -3,7 +3,8 @@ const DEFAULTS = {
   lazyLoad: true,
   maxBackups: 15,
   keepWindowOpen: false,
-  homepageUrl: ''
+  homepageUrl: '',
+  chipStyle: 'name'
 };
 
 let toastTimer = null;
@@ -25,6 +26,7 @@ async function load() {
   document.querySelector('#maxBackups').value = s.maxBackups;
   document.querySelector('#keepWindowOpen').checked = s.keepWindowOpen;
   document.querySelector('#homepageUrl').value = s.homepageUrl;
+  document.querySelector(`input[name="chipStyle"][value="${s.chipStyle}"]`).checked = true;
 }
 
 async function save() {
@@ -38,7 +40,8 @@ async function save() {
     lazyLoad: document.querySelector('#lazyLoad').checked,
     maxBackups: Math.min(50, Math.max(1, Number(document.querySelector('#maxBackups').value) || 15)),
     keepWindowOpen: document.querySelector('#keepWindowOpen').checked,
-    homepageUrl
+    homepageUrl,
+    chipStyle: document.querySelector('input[name="chipStyle"]:checked')?.value ?? 'name'
   };
   await chrome.storage.sync.set({ settings });
   toast('Saved');
