@@ -90,48 +90,96 @@ chrome.windows.onFocusChanged.addListener(async (windowId) => {
   }
 });
 
+// Space of each recently closed window, kept briefly so the keep-window-open
+// resurrection path can re-attach a window whose mapping was already wiped.
+const recentlyClosedSpaces = new Map();
+
 chrome.windows.onRemoved.addListener(async (windowId) => {
   const map = await state.getWinMap();
   if (map[windowId]) {
+    recentlyClosedSpaces.set(windowId, map[windowId]);
+    setTimeout(() => recentlyClosedSpaces.delete(windowId), 15000);
     delete map[windowId];
     await state.setWinMap(map);
   }
 });
 
-// Optional: keep a Space's window open when its last tab is closed.
+// ---- Keep the window open when its last tab is closed (optional) ----
+//
 // Closing a tab directly reports isWindowClosing=false even when it's the
-// last one — the window teardown is deferred a beat, which lets us slip a
-// replacement tab in. Closing the whole window (✕ / Ctrl+Shift+W) reports
-// isWindowClosing=true and is left alone.
-chrome.tabs.onRemoved.addListener(async (tabId, info) => {
+// last one — the window teardown follows a beat later. Winning that race
+// requires acting immediately, so settings and per-window tab counts are
+// cached in memory and the replacement tab is created with a single API
+// call. If the window dies anyway, it's resurrected with the homepage and
+// re-attached to its Space. Closing the whole window (✕ / Ctrl+Shift+W)
+// reports isWindowClosing=true and is always left alone.
+
+let cachedSettings = null;
+const settingsReady = state.getSettings().then((s) => (cachedSettings = s));
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'sync' && changes.settings) {
+    state.getSettings().then((s) => (cachedSettings = s));
+  }
+});
+
+const tabCounts = new Map();
+chrome.windows
+  .getAll({ windowTypes: ['normal'], populate: true })
+  .then((wins) => {
+    for (const w of wins) {
+      if (!tabCounts.has(w.id)) tabCounts.set(w.id, w.tabs.length);
+    }
+  })
+  .catch(() => {});
+const bumpCount = (windowId, delta) => {
+  const known = tabCounts.get(windowId);
+  if (known !== undefined) tabCounts.set(windowId, Math.max(0, known + delta));
+};
+chrome.tabs.onCreated.addListener((tab) => bumpCount(tab.windowId, +1));
+chrome.tabs.onAttached.addListener((tabId, info) => bumpCount(info.newWindowId, +1));
+chrome.tabs.onDetached.addListener((tabId, info) => bumpCount(info.oldWindowId, -1));
+chrome.windows.onRemoved.addListener((windowId) => tabCounts.delete(windowId));
+
+chrome.tabs.onRemoved.addListener((tabId, info) => {
   if (info.isWindowClosing) return;
+  const known = tabCounts.get(info.windowId);
+  if (known !== undefined) tabCounts.set(info.windowId, Math.max(0, known - 1));
+  keepWindowOpen(info.windowId, known !== undefined ? known - 1 : undefined);
+});
+
+async function keepWindowOpen(windowId, remainingHint) {
   try {
-    const settings = await state.getSettings();
-    if (!settings.keepWindowOpen) return;
-    if (switching.has(info.windowId)) return;
-    const map = await state.getWinMap();
-    const spaceId = map[info.windowId];
-    if (!spaceId) return;
-    const remaining = await chrome.tabs.query({ windowId: info.windowId }).catch(() => null);
-    if (!remaining || remaining.length > 0) return;
-    const url = settings.homepageUrl || undefined;
+    if (!cachedSettings) await settingsReady;
+    if (!cachedSettings?.keepWindowOpen) return;
+    if (switching.has(windowId)) return;
+
+    let remaining = remainingHint;
+    if (remaining === undefined) {
+      const tabs = await chrome.tabs.query({ windowId }).catch(() => null);
+      // A failed query means the window is already gone — lost race.
+      remaining = tabs ? tabs.length : 0;
+    }
+    if (remaining > 0) return;
+
+    const url = cachedSettings.homepageUrl || undefined;
     try {
-      await chrome.tabs.create({ windowId: info.windowId, url });
+      await chrome.tabs.create({ windowId, url });
     } catch {
-      // Lost the race — the window already closed. Resurrect it for the
-      // same Space with just the homepage.
+      // The window closed before our tab landed. Reopen it and re-attach
+      // it to the Space it was showing.
+      const spaceId = (await state.getWinMap())[windowId] ?? recentlyClosedSpaces.get(windowId);
       const win = await chrome.windows.create({ url, focused: true }).catch(() => null);
-      if (win) {
-        const freshMap = await state.getWinMap();
-        delete freshMap[info.windowId];
-        freshMap[win.id] = spaceId;
-        await state.setWinMap(freshMap);
+      if (win && spaceId) {
+        const map = await state.getWinMap();
+        delete map[windowId];
+        map[win.id] = spaceId;
+        await state.setWinMap(map);
       }
     }
   } catch (e) {
     console.warn('Spaces: keep-window-open failed', e);
   }
-});
+}
 
 chrome.commands.onCommand.addListener((command) => {
   if (command === 'next-space') cycleSpace(1);
