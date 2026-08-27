@@ -249,17 +249,19 @@ async function resurrectIfMarked(windowId) {
   const spaceId = (await state.getWinMap())[windowId] ?? recentlyClosedSpaces.get(windowId);
   const opts = { url: cachedSettings.homepageUrl || undefined, focused: true };
   const bounds = windowBounds.get(windowId);
-  if (bounds) {
-    if (bounds.state === 'maximized' || bounds.state === 'fullscreen') {
-      opts.state = 'maximized';
-    } else if (bounds.state === 'normal') {
-      opts.left = bounds.left;
-      opts.top = bounds.top;
-      opts.width = bounds.width;
-      opts.height = bounds.height;
-    }
+  // Always create with explicit coordinates — they pin the window to the
+  // monitor the old one was on. chrome.windows.create can't combine
+  // coordinates with a maximized state, so maximize in a second step.
+  if (bounds && bounds.state !== 'minimized') {
+    opts.left = bounds.left;
+    opts.top = bounds.top;
+    opts.width = bounds.width;
+    opts.height = bounds.height;
   }
   const win = await chrome.windows.create(opts).catch(() => null);
+  if (win && (bounds?.state === 'maximized' || bounds?.state === 'fullscreen')) {
+    await chrome.windows.update(win.id, { state: 'maximized' }).catch(() => {});
+  }
   console.log('Spaces: resurrected window', windowId, '->', win?.id, 'for space', spaceId);
   if (win && spaceId) {
     const freshMap = await state.getWinMap();
