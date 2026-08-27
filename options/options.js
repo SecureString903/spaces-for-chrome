@@ -18,15 +18,24 @@ function toast(text) {
   }, 1600);
 }
 
+// A stored value outside the rendered radio set (corruption, or synced from
+// a newer version) must not crash load() — a blank form plus the wired
+// change->save handlers would let one click overwrite every setting.
+function checkRadio(name, value, fallback) {
+  const radios = [...document.querySelectorAll(`input[name="${name}"]`)];
+  const target = radios.find((r) => r.value === value) ?? radios.find((r) => r.value === fallback);
+  if (target) target.checked = true;
+}
+
 async function load() {
   const { settings = {} } = await chrome.storage.sync.get('settings');
   const s = { ...DEFAULTS, ...settings };
-  document.querySelector(`input[name="bookmarkMode"][value="${s.bookmarkMode}"]`).checked = true;
+  checkRadio('bookmarkMode', s.bookmarkMode, DEFAULTS.bookmarkMode);
   document.querySelector('#lazyLoad').checked = s.lazyLoad;
   document.querySelector('#maxBackups').value = s.maxBackups;
   document.querySelector('#keepWindowOpen').checked = s.keepWindowOpen;
   document.querySelector('#homepageUrl').value = s.homepageUrl;
-  document.querySelector(`input[name="chipStyle"][value="${s.chipStyle}"]`).checked = true;
+  checkRadio('chipStyle', s.chipStyle, DEFAULTS.chipStyle);
 }
 
 async function save() {

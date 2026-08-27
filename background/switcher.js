@@ -13,7 +13,7 @@
 import {
   getSpaces,
   getWinMap,
-  setWinMap,
+  updateWinMap,
   getSpaceTabs,
   setSpaceTabs,
   captureWindow,
@@ -24,6 +24,12 @@ import { switching, snapshotNow } from './tracker.js';
 import { swapBars } from './bookmarks.js';
 
 export async function switchSpace(windowId, targetSpaceId) {
+  // Re-entrancy guard: a second switch in the same window mid-switch would
+  // snapshot the half-swapped tab mixture into the outgoing Space.
+  if (switching.has(windowId)) {
+    return { ok: false, error: 'A switch is already in progress in this window.' };
+  }
+
   const map = await getWinMap();
   const currentSpaceId = map[windowId];
   if (currentSpaceId === targetSpaceId) return { ok: true, noop: true };
@@ -36,7 +42,11 @@ export async function switchSpace(windowId, targetSpaceId) {
         await chrome.windows.update(Number(wid), { focused: true });
         return { ok: true, focusedOtherWindow: true };
       }
-      delete map[wid]; // stale entry from a closed window
+      // Stale entry from a closed window.
+      await updateWinMap((m) => {
+        if (m[wid] === targetSpaceId) delete m[wid];
+        return m;
+      });
     }
   }
 
@@ -95,11 +105,15 @@ export async function switchSpace(windowId, targetSpaceId) {
       }
     }
 
-    map[windowId] = targetSpaceId;
-    await setWinMap(map);
+    await updateWinMap((m) => {
+      m[windowId] = targetSpaceId;
+      return m;
+    });
 
-    // Bring this Space's bookmarks onto the (global) bookmarks bar.
-    await swapBars(currentSpaceId ?? null, targetSpaceId);
+    // Bring this Space's bookmarks onto the bar. Deliberately not awaited:
+    // the bookmark queue can back up (focus-follow mode) and must not hold
+    // the switching guard or delay the panel's response.
+    swapBars(currentSpaceId ?? null, targetSpaceId);
     return { ok: true };
   } finally {
     switching.delete(windowId);

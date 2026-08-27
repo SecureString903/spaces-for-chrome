@@ -64,10 +64,12 @@ async function folderForSpace(spaceId) {
   const spaces = await getSpaces();
   const name = spaces.find((s) => s.id === spaceId)?.name || 'Space';
   const rootId = await getSpacesRootId();
-  const folderId = await findOrCreateFolder(rootId, name);
-  map[spaceId] = folderId;
+  // Always create a fresh folder rather than matching by title — a title
+  // match would fuse two same-named Spaces into one bookmark set.
+  const folder = await chrome.bookmarks.create({ parentId: rootId, title: name });
+  map[spaceId] = folder.id;
   await chrome.storage.local.set({ [K_FOLDERS]: map });
-  return folderId;
+  return folder.id;
 }
 
 async function moveChildren(fromId, toId) {
@@ -87,9 +89,16 @@ export function setBarOwner(spaceId) {
 // Swap the bar from its current owner to targetSpaceId. `fallbackOwnerId`
 // is the Space the calling window was showing — used the first time this
 // feature runs, when no owner has been recorded yet.
+//
+// Calls are collapsed latest-wins: rapid focus changes in follow mode can
+// queue many swaps, but only the newest target matters, and skipping the
+// intermediates is safe because each swap reads the recorded owner fresh.
+let swapSeq = 0;
 export function swapBars(fallbackOwnerId, targetSpaceId) {
+  const mySeq = ++swapSeq;
   return enqueue(async () => {
     try {
+      if (mySeq !== swapSeq) return; // superseded by a newer swap
       if ((await getSettings()).bookmarkMode === 'off') return;
       const { [K_BAR_OWNER]: recorded } = await chrome.storage.local.get(K_BAR_OWNER);
       const owner = recorded ?? fallbackOwnerId ?? null;

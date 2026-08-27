@@ -47,8 +47,21 @@ export async function getWinMap() {
   return winmap;
 }
 
-export async function setWinMap(winmap) {
-  await chrome.storage.session.set({ [K_WINMAP]: winmap });
+// Serialized read-modify-write for the winmap. Multiple async writers
+// (switches, window closes, resurrection, re-association) previously each
+// did their own read...write with awaits in between, silently reverting
+// each other's changes. All mutations MUST go through here: the mutator
+// gets a fresh map and returns the map to store.
+let winMapQueue = Promise.resolve();
+export function updateWinMap(mutate) {
+  const run = async () => {
+    const map = await getWinMap();
+    const next = (await mutate(map)) ?? map;
+    await chrome.storage.session.set({ [K_WINMAP]: next });
+    return next;
+  };
+  winMapQueue = winMapQueue.then(run, run);
+  return winMapQueue;
 }
 
 export async function getSpaceTabs(spaceId) {

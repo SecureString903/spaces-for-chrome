@@ -14,3 +14,8 @@ export const PALETTE = [
 ];
 
 export const DEFAULT_SPACE_NAME = 'General';
+
+// Stamped into storage on install/update so future format changes can
+// migrate data instead of duck-typing. Writers must preserve fields they
+// don't recognize — synced data may come from a newer version.
+export const SCHEMA_VERSION = 1;
