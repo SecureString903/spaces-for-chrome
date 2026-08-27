@@ -11,7 +11,9 @@ place — one clean window per context.
   replaced by the target Space's tabs. Restored tabs load lazily (on click)
   so big Spaces don't hammer your machine.
 - **Live auto-save** — the active Space's tab list is continuously tracked
-  (open, close, navigate, reorder, pin), so its state is always current.
+  (open, close, navigate, reorder, pin, group), so its state is always
+  current. Chrome tab groups are preserved: their title, color, collapsed
+  state, and membership are saved and rebuilt on switch and restore.
 - **Side panel switcher** — create, rename, recolor, reorder (drag & drop),
   and delete Spaces; see and jump between the current window's tabs.
 - **Per-window Spaces** — each Chrome window has its own active Space. A

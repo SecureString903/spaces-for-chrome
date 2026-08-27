@@ -67,7 +67,8 @@ export async function removeSpaceTabs(spaceId) {
 
 // Snapshot every tab in a window. `prev` (a prior snapshot for the same
 // Space) lets us keep good titles/favicons for discarded tabs, whose live
-// title can degrade to a bare URL.
+// title can degrade to a bare URL. Tab-group membership is recorded per
+// tab (`group` -> a key into `groups` holding title/color/collapsed).
 export async function captureWindow(windowId, prev = null) {
   const tabs = await chrome.tabs.query({ windowId });
   const prevByUrl = new Map();
@@ -78,6 +79,20 @@ export async function captureWindow(windowId, prev = null) {
   }
   let activeIndex = tabs.findIndex((t) => t.active);
   if (activeIndex < 0) activeIndex = 0;
+
+  const groups = {};
+  const keyByGroupId = new Map();
+  if (chrome.tabGroups) {
+    const groupIds = [...new Set(tabs.map((t) => t.groupId).filter((g) => g != null && g !== -1))];
+    for (let i = 0; i < groupIds.length; i++) {
+      const info = await chrome.tabGroups.get(groupIds[i]).catch(() => null);
+      if (!info) continue;
+      const key = 'g' + i;
+      keyByGroupId.set(groupIds[i], key);
+      groups[key] = { title: info.title || '', color: info.color, collapsed: !!info.collapsed };
+    }
+  }
+
   return {
     tabs: tabs.map((t) => {
       const url = t.url || t.pendingUrl || 'chrome://newtab/';
@@ -86,9 +101,11 @@ export async function captureWindow(windowId, prev = null) {
         url,
         title: (remembered?.title || t.title || '').slice(0, 300),
         pinned: !!t.pinned,
-        favIconUrl: remembered?.favIconUrl || t.favIconUrl || ''
+        favIconUrl: remembered?.favIconUrl || t.favIconUrl || '',
+        group: keyByGroupId.get(t.groupId)
       };
     }),
+    groups,
     activeIndex,
     updatedAt: Date.now()
   };
@@ -100,7 +117,7 @@ export async function pushBackup(label, snapshot) {
   if (!snapshot.tabs.length) return;
   const { maxBackups } = await getSettings();
   const { [K_BACKUPS]: backups = [] } = await chrome.storage.local.get(K_BACKUPS);
-  backups.unshift({ label, at: Date.now(), tabs: snapshot.tabs });
+  backups.unshift({ label, at: Date.now(), tabs: snapshot.tabs, groups: snapshot.groups ?? {} });
   await chrome.storage.local.set({ [K_BACKUPS]: backups.slice(0, Math.max(0, maxBackups)) });
 }
 

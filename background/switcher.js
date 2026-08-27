@@ -60,28 +60,15 @@ export async function switchSpace(windowId, targetSpaceId) {
       await pushBackup('Window tabs replaced by a Space switch', outgoing);
     }
 
-    // 2. Create the incoming tabs.
+    // 2. Create the incoming tabs. `aligned[i]` stays index-aligned with
+    // `list[i]` (null on failure) so group membership can't be scrambled
+    // by a failed create.
     const saved = await getSpaceTabs(targetSpaceId);
     let list = saved.tabs;
     if (!list.length) list = [{ url: 'chrome://newtab/', pinned: false }];
 
-    const created = [];
-    for (const t of list) {
-      let tab = null;
-      try {
-        tab = await chrome.tabs.create({
-          windowId,
-          url: t.url,
-          pinned: !!t.pinned,
-          active: false
-        });
-      } catch {
-        // Some URLs can't be created directly (e.g. other extensions' pages);
-        // fall back to a blank tab rather than dropping the slot.
-        tab = await chrome.tabs.create({ windowId, pinned: !!t.pinned, active: false }).catch(() => null);
-      }
-      if (tab) created.push(tab);
-    }
+    const aligned = await createTabList(windowId, list);
+    const created = aligned.filter(Boolean);
     if (!created.length) {
       const tab = await chrome.tabs.create({ windowId, active: false }).catch(() => null);
       if (tab) created.push(tab);
@@ -91,16 +78,20 @@ export async function switchSpace(windowId, targetSpaceId) {
     }
 
     // 3. Activate before removing, so the window never lands on a random tab.
-    const activeIndex = Math.min(Math.max(saved.activeIndex ?? 0, 0), created.length - 1);
-    await chrome.tabs.update(created[activeIndex].id, { active: true }).catch(() => {});
+    const activeIndex = Math.min(Math.max(saved.activeIndex ?? 0, 0), list.length - 1);
+    const targetTab = aligned[activeIndex] ?? created[0];
+    await chrome.tabs.update(targetTab.id, { active: true }).catch(() => {});
 
-    // 4. Close the outgoing tabs.
+    // 4. Rebuild tab groups.
+    await applyGroups(windowId, list, aligned, saved.groups, targetTab.id);
+
+    // 5. Close the outgoing tabs.
     if (oldIds.length) await chrome.tabs.remove(oldIds).catch(() => {});
 
-    // 5. Lazy-load: discard everything except the active tab.
+    // 6. Lazy-load: discard everything except the active tab.
     if ((await getSettings()).lazyLoad) {
-      for (let i = 0; i < created.length; i++) {
-        if (i !== activeIndex) discardWhenCommitted(created[i].id);
+      for (const tab of created) {
+        if (tab.id !== targetTab.id) discardWhenCommitted(tab.id);
       }
     }
 
@@ -114,6 +105,52 @@ export async function switchSpace(windowId, targetSpaceId) {
     switching.delete(windowId);
     // Let tab churn settle, then record the fresh state.
     setTimeout(() => snapshotNow(windowId), 800);
+  }
+}
+
+// Create a saved tab list in a window, returning an array index-aligned
+// with `list` (null where creation failed).
+async function createTabList(windowId, list) {
+  const aligned = [];
+  for (const t of list) {
+    let tab = null;
+    try {
+      tab = await chrome.tabs.create({ windowId, url: t.url, pinned: !!t.pinned, active: false });
+    } catch {
+      // Some URLs can't be created directly (e.g. other extensions' pages);
+      // fall back to a blank tab rather than dropping the slot.
+      tab = await chrome.tabs.create({ windowId, pinned: !!t.pinned, active: false }).catch(() => null);
+    }
+    aligned.push(tab);
+  }
+  return aligned;
+}
+
+// Recreate saved tab groups: `list[i].group` keys into `groups` metadata,
+// `aligned[i]` is the live tab for that slot. A collapsed group is only
+// collapsed when it doesn't hold the active tab (Chrome would refuse).
+async function applyGroups(windowId, list, aligned, groups, activeTabId) {
+  if (!chrome.tabGroups || !groups) return;
+  const idsByKey = new Map();
+  for (let i = 0; i < list.length; i++) {
+    const key = list[i].group;
+    const tab = aligned[i];
+    if (!key || !tab || list[i].pinned) continue;
+    if (!idsByKey.has(key)) idsByKey.set(key, []);
+    idsByKey.get(key).push(tab.id);
+  }
+  for (const [key, tabIds] of idsByKey) {
+    const meta = groups[key];
+    if (!meta) continue;
+    try {
+      const groupId = await chrome.tabs.group({ tabIds, createProperties: { windowId } });
+      await chrome.tabGroups.update(groupId, { title: meta.title, color: meta.color }).catch(() => {});
+      if (meta.collapsed && !tabIds.includes(activeTabId)) {
+        chrome.tabGroups.update(groupId, { collapsed: true }).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('Spaces: could not rebuild tab group', meta.title, e);
+    }
   }
 }
 
@@ -150,7 +187,7 @@ function discardWhenCommitted(tabId) {
 // Open a saved tab list in a fresh window (used by backup restore). The
 // window is not attached to any Space; the side panel's banner offers to
 // save it as one. Non-active tabs load lazily.
-export async function openTabsInNewWindow(tabs) {
+export async function openTabsInNewWindow(tabs, groups = {}) {
   if (!tabs.length) return null;
   let win = null;
   try {
@@ -163,16 +200,13 @@ export async function openTabsInNewWindow(tabs) {
   if (tabs[0].pinned && firstTab) {
     await chrome.tabs.update(firstTab.id, { pinned: true }).catch(() => {});
   }
+  const aligned = [firstTab ?? null, ...(await createTabList(win.id, tabs.slice(1)))];
+  await applyGroups(win.id, tabs, aligned, groups, firstTab?.id);
   const { lazyLoad } = await getSettings();
-  for (let i = 1; i < tabs.length; i++) {
-    const t = tabs[i];
-    let tab = null;
-    try {
-      tab = await chrome.tabs.create({ windowId: win.id, url: t.url, pinned: !!t.pinned, active: false });
-    } catch {
-      tab = await chrome.tabs.create({ windowId: win.id, active: false }).catch(() => null);
+  if (lazyLoad) {
+    for (const tab of aligned.slice(1)) {
+      if (tab) discardWhenCommitted(tab.id);
     }
-    if (tab && lazyLoad) discardWhenCommitted(tab.id);
   }
   return win.id;
 }

@@ -54,4 +54,10 @@ export function initTracker() {
   chrome.tabs.onActivated.addListener((info) => scheduleSnapshot(info.windowId));
   chrome.tabs.onAttached.addListener((tabId, info) => scheduleSnapshot(info.newWindowId));
   chrome.tabs.onDetached.addListener((tabId, info) => scheduleSnapshot(info.oldWindowId));
+  if (chrome.tabGroups) {
+    chrome.tabGroups.onCreated.addListener((group) => scheduleSnapshot(group.windowId));
+    chrome.tabGroups.onUpdated.addListener((group) => scheduleSnapshot(group.windowId));
+    chrome.tabGroups.onMoved.addListener((group) => scheduleSnapshot(group.windowId));
+    chrome.tabGroups.onRemoved.addListener((group) => scheduleSnapshot(group.windowId));
+  }
 }

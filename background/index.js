@@ -376,10 +376,15 @@ async function handleMessage(msg) {
           ...spaces,
           { id, name, color: PALETTE[spaces.length % PALETTE.length].hex, emoji: '', order: spaces.length }
         ]);
-        await state.setSpaceTabs(id, { tabs: backup.tabs, activeIndex: 0, updatedAt: Date.now() });
+        await state.setSpaceTabs(id, {
+          tabs: backup.tabs,
+          groups: backup.groups ?? {},
+          activeIndex: 0,
+          updatedAt: Date.now()
+        });
         return { ok: true, id, name };
       }
-      const windowId = await openTabsInNewWindow(backup.tabs);
+      const windowId = await openTabsInNewWindow(backup.tabs, backup.groups ?? {});
       return windowId != null ? { ok: true } : { ok: false, error: 'Could not open a window.' };
     }
 
