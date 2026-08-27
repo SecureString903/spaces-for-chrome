@@ -112,14 +112,25 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 const tabCounts = new Map();
+// Last known geometry per window, so a resurrected window reappears in
+// exactly the same place — the close+reopen then reads as a repaint.
+const windowBounds = new Map();
+const rememberBounds = (win) => {
+  if (win.type !== 'normal') return;
+  windowBounds.set(win.id, {
+    left: win.left, top: win.top, width: win.width, height: win.height, state: win.state
+  });
+};
 chrome.windows
   .getAll({ windowTypes: ['normal'], populate: true })
   .then((wins) => {
     for (const w of wins) {
       if (!tabCounts.has(w.id)) tabCounts.set(w.id, w.tabs.length);
+      rememberBounds(w);
     }
   })
   .catch(() => {});
+chrome.windows.onBoundsChanged.addListener(rememberBounds);
 const bumpCount = (windowId, delta) => {
   const known = tabCounts.get(windowId);
   if (known !== undefined) tabCounts.set(windowId, Math.max(0, known + delta));
@@ -131,6 +142,7 @@ chrome.tabs.onDetached.addListener((tabId, info) => bumpCount(info.oldWindowId, 
 // this, new windows have no count and the fast path below can never run.
 chrome.windows.onCreated.addListener((win) => {
   if (win.type !== 'normal') return;
+  rememberBounds(win);
   chrome.tabs.query({ windowId: win.id })
     .then((tabs) => tabCounts.set(win.id, tabs.length))
     .catch(() => {});
@@ -166,7 +178,9 @@ chrome.tabs.onRemoved.addListener((tabId, info) => {
           if (win) pendingKeepAlive.delete(info.windowId);
         }, 500);
       })
-      .catch(() => {});
+      // Rejected create = the window is already tearing down. Don't wait
+      // for windows.onRemoved — resurrect immediately.
+      .catch(() => resurrectIfMarked(info.windowId));
     return;
   }
   keepWindowOpen(info.windowId, remaining);
@@ -212,28 +226,49 @@ const recentlyClosedSpaces = new Map();
 chrome.windows.onRemoved.addListener(async (windowId) => {
   tabCounts.delete(windowId);
   const map = await state.getWinMap();
-  const spaceId = map[windowId] ?? recentlyClosedSpaces.get(windowId);
   if (map[windowId]) {
     recentlyClosedSpaces.set(windowId, map[windowId]);
     setTimeout(() => recentlyClosedSpaces.delete(windowId), 15000);
     delete map[windowId];
     await state.setWinMap(map);
   }
+  await resurrectIfMarked(windowId);
+  windowBounds.delete(windowId);
+});
 
+// Reopen a window that died from a direct last-tab close: same geometry,
+// same Space, homepage tab. The marker check makes this run at most once
+// per closed window, whichever caller gets there first.
+async function resurrectIfMarked(windowId) {
   const markedAt = pendingKeepAlive.get(windowId);
-  pendingKeepAlive.delete(windowId);
   if (!markedAt || Date.now() - markedAt > 3000) return;
+  pendingKeepAlive.delete(windowId);
   if (!cachedSettings) await settingsReady;
   if (!cachedSettings?.keepWindowOpen) return;
-  const url = cachedSettings.homepageUrl || undefined;
-  const win = await chrome.windows.create({ url, focused: true }).catch(() => null);
+
+  const spaceId = (await state.getWinMap())[windowId] ?? recentlyClosedSpaces.get(windowId);
+  const opts = { url: cachedSettings.homepageUrl || undefined, focused: true };
+  const bounds = windowBounds.get(windowId);
+  if (bounds) {
+    if (bounds.state === 'maximized' || bounds.state === 'fullscreen') {
+      opts.state = 'maximized';
+    } else if (bounds.state === 'normal') {
+      opts.left = bounds.left;
+      opts.top = bounds.top;
+      opts.width = bounds.width;
+      opts.height = bounds.height;
+    }
+  }
+  const win = await chrome.windows.create(opts).catch(() => null);
   console.log('Spaces: resurrected window', windowId, '->', win?.id, 'for space', spaceId);
   if (win && spaceId) {
     const freshMap = await state.getWinMap();
+    delete freshMap[windowId];
     freshMap[win.id] = spaceId;
     await state.setWinMap(freshMap);
   }
-});
+  windowBounds.delete(windowId);
+}
 
 chrome.commands.onCommand.addListener((command) => {
   if (command === 'next-space') cycleSpace(1);
