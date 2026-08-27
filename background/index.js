@@ -26,11 +26,14 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
 });
 
-// After a browser restart windowIds are new and session storage is empty.
-// Re-associate restored windows to Spaces by comparing their tab URLs to
-// each Space's saved snapshot (greedy best-match, one window per Space).
-chrome.runtime.onStartup.addListener(async () => {
+// After a browser restart (or an extension reload/update, which clears
+// session storage) the window→Space map is empty. Re-associate windows to
+// Spaces by comparing their tab URLs to each Space's saved snapshot
+// (greedy best-match, one window per Space).
+async function reassociateWindows() {
   try {
+    const existing = await state.getWinMap();
+    if (Object.keys(existing).length) return; // already associated
     const windows = await chrome.windows.getAll({ windowTypes: ['normal'], populate: true });
     const spaces = await state.getSpaces();
     const candidates = [];
@@ -56,9 +59,15 @@ chrome.runtime.onStartup.addListener(async () => {
     }
     await state.setWinMap(map);
   } catch (e) {
-    console.warn('Spaces: startup re-association failed', e);
+    console.warn('Spaces: window re-association failed', e);
   }
-});
+}
+
+chrome.runtime.onStartup.addListener(reassociateWindows);
+// Also run on every service-worker cold start: covers extension
+// reload/update, where onStartup never fires but the session map is gone.
+// The empty-map guard makes routine worker wake-ups a no-op.
+reassociateWindows();
 
 chrome.windows.onRemoved.addListener(async (windowId) => {
   const map = await state.getWinMap();

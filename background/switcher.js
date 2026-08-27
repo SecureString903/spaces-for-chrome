@@ -97,7 +97,7 @@ export async function switchSpace(windowId, targetSpaceId) {
 
     // 5. Lazy-load: discard everything except the active tab.
     for (let i = 0; i < created.length; i++) {
-      if (i !== activeIndex) chrome.tabs.discard(created[i].id).catch(() => {});
+      if (i !== activeIndex) discardWhenCommitted(created[i].id);
     }
 
     map[windowId] = targetSpaceId;
@@ -108,6 +108,36 @@ export async function switchSpace(windowId, targetSpaceId) {
     // Let tab churn settle, then record the fresh state.
     setTimeout(() => snapshotNow(windowId), 800);
   }
+}
+
+// Discarding a tab before its navigation has committed leaves it with no URL
+// to restore — a permanently stuck, spinner-forever tab. Wait until Chrome
+// has committed the URL (tab.url becomes non-empty), then discard. If commit
+// never arrives, leave the tab alone and let it load normally.
+function discardWhenCommitted(tabId) {
+  const cleanup = () => {
+    chrome.tabs.onUpdated.removeListener(listener);
+    clearTimeout(timer);
+  };
+  const tryDiscard = (tab) => {
+    if (tab.active) {
+      cleanup();
+      return true; // user already went there — let it load
+    }
+    if (tab.url && tab.url !== 'about:blank') {
+      cleanup();
+      chrome.tabs.discard(tabId).catch(() => {});
+      return true;
+    }
+    return false;
+  };
+  const listener = (id, changes, tab) => {
+    if (id === tabId) tryDiscard(tab);
+  };
+  const timer = setTimeout(cleanup, 15000);
+  chrome.tabs.onUpdated.addListener(listener);
+  // The navigation may have committed before the listener attached.
+  chrome.tabs.get(tabId).then(tryDiscard).catch(cleanup);
 }
 
 // Keyboard cycling. Only acts on windows already in a Space (cycling an
