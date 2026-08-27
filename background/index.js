@@ -4,6 +4,7 @@ import { PALETTE, DEFAULT_SPACE_NAME } from '../shared/constants.js';
 import * as state from './state.js';
 import { initTracker } from './tracker.js';
 import { switchSpace, cycleSpace } from './switcher.js';
+import { setBarOwner, renameSpaceFolder, onSpaceDeleted } from './bookmarks.js';
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 initTracker();
@@ -24,6 +25,8 @@ chrome.runtime.onInstalled.addListener(async () => {
     await state.setWinMap(map);
     await state.setSpaceTabs(id, await state.captureWindow(win.id));
   }
+  // Whatever is on the bookmarks bar right now belongs to the first Space.
+  await setBarOwner(id);
 });
 
 // After a browser restart (or an extension reload/update, which clears
@@ -129,10 +132,12 @@ async function handleMessage(msg) {
       const spaces = await state.getSpaces();
       const space = spaces.find((s) => s.id === msg.id);
       if (!space) return { ok: false, error: 'Space not found.' };
+      const oldName = space.name;
       if (typeof msg.patch?.name === 'string') space.name = msg.patch.name.trim() || space.name;
       if (typeof msg.patch?.color === 'string') space.color = msg.patch.color;
       if (typeof msg.patch?.emoji === 'string') space.emoji = msg.patch.emoji.trim();
       await state.setSpaces(spaces);
+      if (space.name !== oldName) renameSpaceFolder(space.id, space.name);
       return { ok: true };
     }
 
@@ -153,6 +158,7 @@ async function handleMessage(msg) {
         spaces.filter((s) => s.id !== msg.id).map((s, i) => ({ ...s, order: i }))
       );
       await state.removeSpaceTabs(msg.id);
+      await onSpaceDeleted(msg.id);
       return { ok: true };
     }
 

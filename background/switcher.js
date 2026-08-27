@@ -20,6 +20,7 @@ import {
   pushBackup
 } from './state.js';
 import { switching, snapshotNow } from './tracker.js';
+import { swapBars } from './bookmarks.js';
 
 export async function switchSpace(windowId, targetSpaceId) {
   const map = await getWinMap();
@@ -102,6 +103,9 @@ export async function switchSpace(windowId, targetSpaceId) {
 
     map[windowId] = targetSpaceId;
     await setWinMap(map);
+
+    // Bring this Space's bookmarks onto the (global) bookmarks bar.
+    await swapBars(currentSpaceId ?? null, targetSpaceId);
     return { ok: true };
   } finally {
     switching.delete(windowId);

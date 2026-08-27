@@ -17,6 +17,13 @@ place — one clean window per context.
 - **Per-window Spaces** — each Chrome window has its own active Space. A
   Space can be live in one window at a time; switching to a Space that's
   open elsewhere focuses that window.
+- **Per-Space bookmark bars** — each Space has its own bookmarks bar.
+  On switch, the bar's contents are stashed into a hidden folder under
+  **Other Bookmarks → Spaces** and the incoming Space's bookmarks take
+  their place. Bookmarks are only ever moved, never deleted; deleting a
+  Space leaves its folder behind as an archive. Note: Chrome has a single
+  bar shared by all windows, so the bar tracks the most recently
+  switched-to Space.
 - **Keyboard shortcuts** — `Ctrl+Shift+.` / `Ctrl+Shift+,` cycle Spaces
   (customizable at `chrome://extensions/shortcuts`).
 - **Safety nets** — tabs are saved *before* anything closes, and the last 15
@@ -46,6 +53,7 @@ background/            Service worker
                        session: window→Space map)
   tracker.js           Debounced live tab tracking
   switcher.js          Swap-in-place switch engine + keyboard cycling
+  bookmarks.js         Per-Space bookmark bar swapping
 sidepanel/             Side panel UI (vanilla JS, light/dark aware)
 shared/constants.js    Palette and shared constants
 scripts/gen-icons.ps1  Regenerates icons/*.png
