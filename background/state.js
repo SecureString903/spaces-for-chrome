@@ -94,3 +94,8 @@ export async function getBackups() {
   const { [K_BACKUPS]: backups = [] } = await chrome.storage.local.get(K_BACKUPS);
   return backups;
 }
+
+export async function removeBackup(at) {
+  const { [K_BACKUPS]: backups = [] } = await chrome.storage.local.get(K_BACKUPS);
+  await chrome.storage.local.set({ [K_BACKUPS]: backups.filter((b) => b.at !== at) });
+}

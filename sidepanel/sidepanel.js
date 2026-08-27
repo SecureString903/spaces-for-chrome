@@ -4,9 +4,10 @@
 import { PALETTE } from '../shared/constants.js';
 
 let windowId = null;
-let appState = { spaces: [], winMap: {}, counts: {} };
+let appState = { spaces: [], winMap: {}, counts: {}, backups: [] };
 let editingSpaceId = null; // null = no editor; 'new' = create form
 let dragSpaceId = null;
+const expandedBackups = new Set(); // backup `at` timestamps
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -386,11 +387,96 @@ async function renderTabs() {
   }
 }
 
+function timeAgo(ts) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function renderBackups() {
+  const section = $('#backups-section');
+  const backups = appState.backups ?? [];
+  section.hidden = !backups.length;
+  if (!backups.length) return;
+  $('#backup-count').textContent = String(backups.length);
+  const list = $('#backup-list');
+  list.replaceChildren();
+
+  for (const backup of backups) {
+    const expanded = expandedBackups.has(backup.at);
+    const head = el('div', {
+      class: 'backup-head',
+      title: expanded ? 'Hide tabs' : 'Show tabs',
+      onclick: () => {
+        if (expandedBackups.has(backup.at)) expandedBackups.delete(backup.at);
+        else expandedBackups.add(backup.at);
+        render();
+      }
+    },
+      el('span', { class: 'backup-label' }, backup.label),
+      el('span', { class: 'backup-meta' }, `${backup.tabs.length} tab${backup.tabs.length === 1 ? '' : 's'} · ${timeAgo(backup.at)}`),
+      el('button', {
+        class: 'icon-btn',
+        title: 'Open in a new window',
+        onclick: async (e) => {
+          e.stopPropagation();
+          const result = await send({ type: 'restoreBackup', at: backup.at, mode: 'window' });
+          if (!result?.ok) toast(result?.error ?? 'Restore failed');
+        }
+      }, '↗'),
+      el('button', {
+        class: 'icon-btn',
+        title: 'Save as a new Space',
+        onclick: async (e) => {
+          e.stopPropagation();
+          const result = await send({ type: 'restoreBackup', at: backup.at, mode: 'space' });
+          if (result?.ok) toast(`Saved as Space “${result.name}”`);
+          else toast(result?.error ?? 'Restore failed');
+          await refreshAndRender();
+        }
+      }, '＋'),
+      el('button', {
+        class: 'icon-btn',
+        title: 'Delete backup',
+        onclick: async (e) => {
+          e.stopPropagation();
+          const ok = await confirmDialog(
+            `Delete this backup of ${backup.tabs.length} tab${backup.tabs.length === 1 ? '' : 's'}? This can't be undone.`,
+            'Delete'
+          );
+          if (!ok) return;
+          await send({ type: 'deleteBackup', at: backup.at });
+          expandedBackups.delete(backup.at);
+          await refreshAndRender();
+        }
+      }, '✕')
+    );
+
+    const row = el('li', { class: 'backup-row' }, head);
+    if (expanded) {
+      const tabList = el('ul', { class: 'backup-tabs' });
+      for (const t of backup.tabs) {
+        tabList.append(el('li', { title: t.url },
+          el('img', { class: 'tab-favicon', src: t.favIconUrl || faviconUrl(t.url), alt: '' }),
+          el('span', {}, t.title || t.url)
+        ));
+      }
+      row.append(tabList);
+    }
+    list.append(row);
+  }
+}
+
 function render() {
   renderHeader();
   renderBanner();
   renderSpaces();
   renderTabs();
+  renderBackups();
 }
 
 async function refreshAndRender() {

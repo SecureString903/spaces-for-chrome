@@ -3,7 +3,7 @@
 import { PALETTE, DEFAULT_SPACE_NAME } from '../shared/constants.js';
 import * as state from './state.js';
 import { initTracker } from './tracker.js';
-import { switchSpace, cycleSpace } from './switcher.js';
+import { switchSpace, cycleSpace, openTabsInNewWindow } from './switcher.js';
 import { setBarOwner, renameSpaceFolder, onSpaceDeleted } from './bookmarks.js';
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
@@ -101,7 +101,7 @@ async function handleMessage(msg) {
       for (const s of spaces) {
         counts[s.id] = (await state.getSpaceTabs(s.id)).tabs.length;
       }
-      return { ok: true, spaces, winMap: map, counts };
+      return { ok: true, spaces, winMap: map, counts, backups: await state.getBackups() };
     }
 
     case 'switchSpace':
@@ -159,6 +159,32 @@ async function handleMessage(msg) {
       );
       await state.removeSpaceTabs(msg.id);
       await onSpaceDeleted(msg.id);
+      return { ok: true };
+    }
+
+    case 'restoreBackup': {
+      const backups = await state.getBackups();
+      const backup = backups.find((b) => b.at === msg.at);
+      if (!backup) return { ok: false, error: 'Backup not found.' };
+      if (msg.mode === 'space') {
+        const spaces = await state.getSpaces();
+        const id = state.newId();
+        const name =
+          (msg.name || '').trim() ||
+          `Restored ${new Date(backup.at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
+        await state.setSpaces([
+          ...spaces,
+          { id, name, color: PALETTE[spaces.length % PALETTE.length].hex, emoji: '', order: spaces.length }
+        ]);
+        await state.setSpaceTabs(id, { tabs: backup.tabs, activeIndex: 0, updatedAt: Date.now() });
+        return { ok: true, id, name };
+      }
+      const windowId = await openTabsInNewWindow(backup.tabs);
+      return windowId != null ? { ok: true } : { ok: false, error: 'Could not open a window.' };
+    }
+
+    case 'deleteBackup': {
+      await state.removeBackup(msg.at);
       return { ok: true };
     }
 

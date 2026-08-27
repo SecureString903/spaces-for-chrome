@@ -27,7 +27,9 @@ place — one clean window per context.
 - **Keyboard shortcuts** — `Ctrl+Shift+.` / `Ctrl+Shift+,` cycle Spaces
   (customizable at `chrome://extensions/shortcuts`).
 - **Safety nets** — tabs are saved *before* anything closes, and the last 15
-  replaced/deleted tab lists are kept as rolling backups in storage.
+  replaced/deleted tab lists are kept as rolling backups. The panel's
+  Backups section can reopen any of them in a new window, save one as a
+  new Space, or delete it.
 - **Restart-safe** — after a browser restart, restored windows are re-matched
   to their Spaces by comparing tab URLs.
 
@@ -61,6 +63,5 @@ scripts/gen-icons.ps1  Regenerates icons/*.png
 
 ## Roadmap
 
-- Backups UI (restore a replaced/deleted tab list)
-- Onboarding & options page
+- Onboarding & options page (incl. optional focus-follow bookmark bar)
 - Chrome Web Store packaging (icons/screenshots/privacy policy)

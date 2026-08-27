@@ -144,6 +144,35 @@ function discardWhenCommitted(tabId) {
   chrome.tabs.get(tabId).then(tryDiscard).catch(cleanup);
 }
 
+// Open a saved tab list in a fresh window (used by backup restore). The
+// window is not attached to any Space; the side panel's banner offers to
+// save it as one. Non-active tabs load lazily.
+export async function openTabsInNewWindow(tabs) {
+  if (!tabs.length) return null;
+  let win = null;
+  try {
+    win = await chrome.windows.create({ url: tabs[0].url, focused: true });
+  } catch {
+    win = await chrome.windows.create({ focused: true }).catch(() => null);
+  }
+  if (!win) return null;
+  const firstTab = win.tabs?.[0];
+  if (tabs[0].pinned && firstTab) {
+    await chrome.tabs.update(firstTab.id, { pinned: true }).catch(() => {});
+  }
+  for (let i = 1; i < tabs.length; i++) {
+    const t = tabs[i];
+    let tab = null;
+    try {
+      tab = await chrome.tabs.create({ windowId: win.id, url: t.url, pinned: !!t.pinned, active: false });
+    } catch {
+      tab = await chrome.tabs.create({ windowId: win.id, active: false }).catch(() => null);
+    }
+    if (tab) discardWhenCommitted(tab.id);
+  }
+  return win.id;
+}
+
 // Keyboard cycling. Only acts on windows already in a Space (cycling an
 // unadopted window would replace tabs the user never asked us to manage),
 // and skips Spaces that are live in other windows.
