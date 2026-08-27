@@ -120,7 +120,12 @@ async function onSpaceClick(space) {
 
 async function saveEditor(form) {
   const name = form.querySelector('.name-input').value;
-  const emoji = form.querySelector('.emoji-input').value;
+  // Keep only the first grapheme cluster — one whole emoji, however many
+  // code units it takes (ZWJ sequences, flags, skin tones).
+  let emoji = form.querySelector('.emoji-input').value.trim();
+  if (emoji) {
+    emoji = [...new Intl.Segmenter().segment(emoji)][0]?.segment ?? '';
+  }
   const color = form.dataset.color || PALETTE[0].hex;
   if (editingSpaceId === 'new') {
     const adopt = form.querySelector('.adopt-check')?.checked;
@@ -240,9 +245,10 @@ function renderEditor(space = null) {
         type: 'text',
         class: 'emoji-input',
         placeholder: '🙂',
-        maxlength: '4',
+        maxlength: '20',
         value: space?.emoji ?? '',
-        title: 'Optional emoji'
+        title: 'Optional emoji icon — Win+. opens the emoji picker',
+        onfocus: (e) => e.target.select()
       }),
       el('input', {
         type: 'text',
