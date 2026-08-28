@@ -1,8 +1,10 @@
 // Storage layer.
 //
-// - Space definitions live in chrome.storage.sync so they roam across the
-//   user's Chrome installs (they're tiny).
-// - Tab snapshots live in chrome.storage.local (too large for sync quotas).
+// - All Space data (definitions, tab snapshots, icons, backups) lives in
+//   chrome.storage.local: Spaces are deliberately per-machine. Tab
+//   snapshots couldn't fit sync quotas anyway, and half-synced Spaces
+//   (definitions roaming without their tabs) read as data loss on a second
+//   machine. Only the options-page settings roam via chrome.storage.sync.
 // - The windowId -> spaceId map lives in chrome.storage.session: windowIds
 //   are only meaningful within one browser run, and session storage survives
 //   service-worker restarts but not browser restarts (index.js re-associates
@@ -33,13 +35,33 @@ export function newId() {
   return crypto.randomUUID();
 }
 
+// Versions before 0.7.2 kept Space definitions in chrome.storage.sync.
+// One-time migration: copy them into local, then clear the sync copy so
+// the per-machine story is complete.
+async function migrateSpacesToLocal() {
+  try {
+    const local = await chrome.storage.local.get(K_SPACES);
+    if (local[K_SPACES]?.length) return;
+    const synced = await chrome.storage.sync.get(K_SPACES);
+    if (synced[K_SPACES]?.length) {
+      await chrome.storage.local.set({ [K_SPACES]: synced[K_SPACES] });
+      await chrome.storage.sync.remove(K_SPACES);
+    }
+  } catch (e) {
+    console.warn('Spaces: sync->local migration failed', e);
+  }
+}
+const spacesMigrated = migrateSpacesToLocal();
+
 export async function getSpaces() {
-  const { [K_SPACES]: spaces = [] } = await chrome.storage.sync.get(K_SPACES);
+  await spacesMigrated;
+  const { [K_SPACES]: spaces = [] } = await chrome.storage.local.get(K_SPACES);
   return spaces.sort((a, b) => a.order - b.order);
 }
 
 export async function setSpaces(spaces) {
-  await chrome.storage.sync.set({ [K_SPACES]: spaces });
+  await spacesMigrated;
+  await chrome.storage.local.set({ [K_SPACES]: spaces });
 }
 
 export async function getWinMap() {

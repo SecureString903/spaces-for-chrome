@@ -36,7 +36,9 @@ place — one clean window per context.
   to their Spaces by comparing tab URLs.
 
 No build step, no external services — plain JavaScript, and no data ever
-leaves the browser.
+leaves the browser. Spaces are deliberately **per-machine**: your tabs,
+Spaces, icons, and backups stay on this computer. Only the options-page
+preferences roam between your Chrome installs via Chrome sync.
 
 ## Install (unpacked)
 
@@ -53,8 +55,8 @@ On install, your current window is adopted into a default **General** Space.
 manifest.json          MV3 manifest
 background/            Service worker
   index.js             Lifecycle, message routing, commands, startup re-association
-  state.js             Storage layer (sync: Space defs, local: tab snapshots + backups,
-                       session: window→Space map)
+  state.js             Storage layer (local: Spaces, tab snapshots, icons, backups;
+                       sync: settings; session: window→Space map)
   tracker.js           Debounced live tab tracking
   switcher.js          Swap-in-place switch engine + keyboard cycling
   bookmarks.js         Per-Space bookmark bar swapping
