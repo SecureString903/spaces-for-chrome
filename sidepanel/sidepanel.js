@@ -532,6 +532,137 @@ async function renderTabs() {
   }
 }
 
+// ---------- bookmarks section ----------
+
+// viewFolderId is what's displayed; stack holds parent folders while
+// drilled into subfolders; lastSpaceId detects Space switches so the view
+// resets to the new Space's default folder.
+const bmState = {
+  folders: [],
+  defaultFolderId: null,
+  spaceFolderId: null,
+  viewFolderId: null,
+  stack: [],
+  lastSpaceId: undefined
+};
+
+async function refreshBookmarkState() {
+  const res = await send({ type: 'getBookmarkContext', windowId });
+  if (!res?.ok) return;
+  bmState.folders = res.folders;
+  bmState.defaultFolderId = res.defaultFolderId;
+  bmState.spaceFolderId = res.spaceFolderId;
+  if (bmState.lastSpaceId !== res.currentSpaceId) {
+    bmState.lastSpaceId = res.currentSpaceId;
+    bmState.viewFolderId = res.defaultFolderId ?? res.folders[0]?.id ?? null;
+    bmState.stack = [];
+  } else if (!bmState.viewFolderId) {
+    bmState.viewFolderId = res.defaultFolderId ?? res.folders[0]?.id ?? null;
+  }
+}
+
+async function openBookmark(url, event) {
+  if (event.ctrlKey || event.metaKey || event.button === 1) {
+    chrome.tabs.create({ windowId, url, active: false });
+    return;
+  }
+  const [active] = await chrome.tabs.query({ windowId, active: true });
+  if (active) chrome.tabs.update(active.id, { url });
+  else chrome.tabs.create({ windowId, url });
+}
+
+async function renderBookmarks() {
+  const section = $('#bookmarks-section');
+  if (!bmState.folders.length) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+
+  // Folder dropdown reflects the top-level folder we're in (or entered from).
+  const select = $('#bm-folder-select');
+  const baseFolderId = bmState.stack[0] ?? bmState.viewFolderId;
+  select.replaceChildren(
+    ...bmState.folders.map((f) =>
+      el('option', { value: f.id, selected: f.id === baseFolderId ? '' : undefined }, f.title)
+    )
+  );
+
+  const pinBtn = $('#bm-pin-btn');
+  const isDefault = bmState.viewFolderId === bmState.defaultFolderId;
+  pinBtn.classList.toggle('pinned', isDefault);
+  pinBtn.title = isDefault
+    ? 'This folder is the default for the current Space'
+    : 'Show this folder by default for the current Space';
+
+  const list = $('#bm-list');
+  const note = $('#bm-note');
+  note.textContent = '';
+  list.replaceChildren();
+  if (!bmState.viewFolderId) return;
+
+  let children = null;
+  try {
+    children = await chrome.bookmarks.getChildren(bmState.viewFolderId);
+  } catch {
+    // Folder was deleted externally — fall back to the first known folder.
+    bmState.viewFolderId = bmState.folders[0]?.id ?? null;
+    bmState.stack = [];
+    return;
+  }
+
+  if (bmState.stack.length) {
+    list.append(el('li', {
+      class: 'tab-row',
+      onclick: () => {
+        bmState.viewFolderId = bmState.stack.pop();
+        renderBookmarks();
+      }
+    }, el('span', { class: 'bm-folder-icon' }, '◀'), el('span', { class: 'tab-title' }, 'Back')));
+  }
+
+  for (const node of children) {
+    if (node.url) {
+      const row = el('li', {
+        class: 'tab-row',
+        title: node.url,
+        onclick: (e) => openBookmark(node.url, e)
+      },
+        el('img', { class: 'tab-favicon', src: faviconUrl(node.url), alt: '' }),
+        el('span', { class: 'tab-title' }, node.title || node.url)
+      );
+      row.addEventListener('auxclick', (e) => {
+        if (e.button === 1) openBookmark(node.url, e);
+      });
+      list.append(row);
+    } else {
+      list.append(el('li', {
+        class: 'tab-row',
+        title: node.title,
+        onclick: () => {
+          bmState.stack.push(bmState.viewFolderId);
+          bmState.viewFolderId = node.id;
+          renderBookmarks();
+        }
+      },
+        el('span', { class: 'bm-folder-icon' }, '📁'),
+        el('span', { class: 'tab-title' }, node.title || 'Folder')
+      ));
+    }
+  }
+
+  if (!children.length) {
+    const barMode = (appState.settings?.bookmarkMode ?? 'switch') === 'switch';
+    const isCurrentSpaceFolder = bmState.viewFolderId === bmState.spaceFolderId;
+    note.textContent = '';
+    list.append(el('li', { class: 'empty-note' },
+      barMode && isCurrentSpaceFolder
+        ? "Empty — this Space's bookmarks are currently on the bookmarks bar."
+        : 'Empty folder. Use ★ to bookmark the current tab here.'
+    ));
+  }
+}
+
 function timeAgo(ts) {
   const s = Math.floor((Date.now() - ts) / 1000);
   if (s < 60) return 'just now';
@@ -621,11 +752,13 @@ function render() {
   renderBanner();
   renderSpaces();
   renderTabs();
+  renderBookmarks();
   renderBackups();
 }
 
 async function refreshAndRender() {
   await refreshState();
+  await refreshBookmarkState();
   render();
 }
 
@@ -639,6 +772,47 @@ function scheduleRender() {
 
 function initListeners() {
   $('#options-btn').addEventListener('click', () => chrome.runtime.openOptionsPage());
+
+  $('#bm-folder-select').addEventListener('change', (e) => {
+    bmState.viewFolderId = e.target.value;
+    bmState.stack = [];
+    renderBookmarks();
+  });
+  $('#bm-pin-btn').addEventListener('click', async () => {
+    const space = currentSpace();
+    if (!space) {
+      toast('This window is not in a Space');
+      return;
+    }
+    if (!bmState.viewFolderId) return;
+    const result = await send({
+      type: 'updateSpace',
+      id: space.id,
+      patch: { bookmarkFolderId: bmState.viewFolderId }
+    });
+    if (result?.ok) {
+      bmState.defaultFolderId = bmState.viewFolderId;
+      toast(`Default folder set for “${space.name}”`);
+      renderBookmarks();
+    }
+  });
+  $('#bm-add-btn').addEventListener('click', async () => {
+    if (!bmState.viewFolderId) return;
+    const [active] = await chrome.tabs.query({ windowId, active: true });
+    if (!active?.url || active.url.startsWith('chrome://')) {
+      toast('Nothing to bookmark here');
+      return;
+    }
+    await chrome.bookmarks
+      .create({ parentId: bmState.viewFolderId, title: active.title || active.url, url: active.url })
+      .then(() => toast('Bookmarked'))
+      .catch(() => toast('Could not bookmark that tab'));
+    renderBookmarks();
+  });
+
+  for (const event of ['onCreated', 'onRemoved', 'onChanged', 'onMoved']) {
+    chrome.bookmarks[event].addListener(() => scheduleRender());
+  }
   $('#new-space-btn').addEventListener('click', () => {
     editingSpaceId = 'new';
     render();

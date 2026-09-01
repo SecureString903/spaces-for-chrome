@@ -26,6 +26,13 @@ place — one clean window per context.
   Space leaves its folder behind as an archive. Note: Chrome has a single
   bar shared by all windows, so the bar tracks the most recently
   switched-to Space.
+- **Bookmarks in the side panel** — a Bookmarks section shows any folder
+  under *Other Bookmarks → Spaces*: pick a folder on the fly, drill into
+  subfolders, click to open (Ctrl+click for a background tab), ★ to
+  bookmark the current tab into the folder, and 📌 to make the viewed
+  folder the default for the current Space. Because this only *reads*
+  bookmarks, it's the sync-friendly alternative to bar swapping for
+  multi-computer use.
 - **Keyboard shortcuts** — `Ctrl+Shift+.` / `Ctrl+Shift+,` cycle Spaces
   (customizable at `chrome://extensions/shortcuts`).
 - **Safety nets** — tabs are saved *before* anything closes, and the last 15

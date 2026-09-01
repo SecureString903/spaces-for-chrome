@@ -33,6 +33,10 @@ WHAT IT DOES
 • A bookmarks bar per Space — switching also swaps the bar's contents
   through hidden folders under Other Bookmarks. Bookmarks are only ever
   moved, never deleted.
+• Bookmarks in the side panel — browse any Space's bookmark folder
+  right in the panel, set a default folder per Space, and bookmark the
+  current tab with one click. A sync-friendly alternative to bar
+  swapping if you use several computers.
 • Lazy loading — restored tabs load when you click them, so big Spaces
   switch instantly.
 • Safety nets — rolling backups of every replaced tab list, restorable

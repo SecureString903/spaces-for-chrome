@@ -50,9 +50,18 @@ async function findOrCreateFolder(parentId, title) {
   return created.id;
 }
 
-async function getSpacesRootId() {
+export async function getSpacesRootId() {
   const other = await getOtherNode();
   return findOrCreateFolder(other.id, ROOT_FOLDER_NAME);
+}
+
+export async function getSpaceFolderMap() {
+  const { [K_FOLDERS]: map = {} } = await chrome.storage.local.get(K_FOLDERS);
+  return map;
+}
+
+export function ensureSpaceFolder(spaceId) {
+  return folderForSpace(spaceId);
 }
 
 async function folderForSpace(spaceId) {

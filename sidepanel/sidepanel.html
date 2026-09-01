@@ -30,6 +30,19 @@
       <button id="new-space-btn" class="ghost-btn">＋ New Space</button>
     </section>
 
+    <section class="section" id="bookmarks-section" hidden>
+      <div class="section-head">
+        <h2>Bookmarks</h2>
+        <span id="bm-note" class="muted"></span>
+      </div>
+      <div class="bm-controls">
+        <select id="bm-folder-select" class="bm-select" title="Choose which folder to show"></select>
+        <button id="bm-pin-btn" class="icon-btn always-visible" title="Show this folder by default for the current Space">📌</button>
+        <button id="bm-add-btn" class="icon-btn always-visible" title="Bookmark the current tab into this folder">★</button>
+      </div>
+      <ul id="bm-list" class="tab-list"></ul>
+    </section>
+
     <section class="section">
       <div class="section-head">
         <h2>Tabs in this window</h2>

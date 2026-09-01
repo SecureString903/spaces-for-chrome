@@ -562,6 +562,42 @@ main {
   flex: none;
 }
 
+/* ---- Bookmarks ---- */
+
+.bm-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.bm-select {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.bm-select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.bm-folder-icon {
+  width: 16px;
+  text-align: center;
+  flex: none;
+}
+
+.icon-btn.pinned {
+  color: var(--accent);
+}
+
 /* ---- Backups ---- */
 
 .backup-list {

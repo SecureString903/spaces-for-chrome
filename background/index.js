@@ -4,7 +4,15 @@ import { PALETTE, DEFAULT_SPACE_NAME, SCHEMA_VERSION } from '../shared/constants
 import * as state from './state.js';
 import { initTracker } from './tracker.js';
 import { switchSpace, cycleSpace, openTabsInNewWindow } from './switcher.js';
-import { setBarOwner, renameSpaceFolder, onSpaceDeleted, swapBars } from './bookmarks.js';
+import {
+  setBarOwner,
+  renameSpaceFolder,
+  onSpaceDeleted,
+  swapBars,
+  getSpacesRootId,
+  getSpaceFolderMap,
+  ensureSpaceFolder
+} from './bookmarks.js';
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 initTracker();
@@ -204,6 +212,10 @@ async function handleMessage(msg) {
       if (typeof msg.patch?.name === 'string') space.name = msg.patch.name.trim() || space.name;
       if (typeof msg.patch?.color === 'string') space.color = msg.patch.color;
       if (typeof msg.patch?.emoji === 'string') space.emoji = msg.patch.emoji.trim();
+      if (msg.patch && 'bookmarkFolderId' in msg.patch) {
+        if (msg.patch.bookmarkFolderId) space.bookmarkFolderId = msg.patch.bookmarkFolderId;
+        else delete space.bookmarkFolderId;
+      }
       await state.setSpaces(spaces);
       if (msg.patch && 'iconData' in msg.patch) {
         await state.setIcon(space.id, msg.patch.iconData);
@@ -232,6 +244,41 @@ async function handleMessage(msg) {
       await state.setIcon(msg.id, null);
       await onSpaceDeleted(msg.id);
       return { ok: true };
+    }
+
+    case 'getBookmarkContext': {
+      // Everything the panel's Bookmarks section needs: the folders under
+      // "Other Bookmarks / Spaces", the current Space, its mapped folder,
+      // and its configured default view folder.
+      const map = await state.getWinMap();
+      const currentSpaceId = map[msg.windowId] ?? null;
+      let rootId = null;
+      let folders = [];
+      try {
+        rootId = await getSpacesRootId();
+        folders = (await chrome.bookmarks.getChildren(rootId))
+          .filter((n) => !n.url)
+          .map((n) => ({ id: n.id, title: n.title }));
+      } catch {
+        return { ok: true, rootId: null, folders: [], currentSpaceId, defaultFolderId: null, spaceFolderId: null };
+      }
+      let spaceFolderId = null;
+      let defaultFolderId = null;
+      if (currentSpaceId) {
+        spaceFolderId = (await getSpaceFolderMap())[currentSpaceId] ?? null;
+        const spaces = await state.getSpaces();
+        defaultFolderId = spaces.find((s) => s.id === currentSpaceId)?.bookmarkFolderId ?? spaceFolderId;
+        if (defaultFolderId) {
+          const node = await chrome.bookmarks.get(defaultFolderId).catch(() => null);
+          if (!node) defaultFolderId = spaceFolderId;
+        }
+      }
+      return { ok: true, rootId, folders, currentSpaceId, defaultFolderId, spaceFolderId };
+    }
+
+    case 'ensureSpaceFolder': {
+      const folderId = await ensureSpaceFolder(msg.spaceId);
+      return { ok: true, folderId };
     }
 
     case 'restoreBackup': {
