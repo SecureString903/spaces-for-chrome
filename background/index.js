@@ -13,7 +13,8 @@ import {
   getSpaceFolderMap,
   ensureSpaceFolder,
   loadFolderToBar,
-  getBarFolderId
+  getBarFolderId,
+  linkSpaceFolder
 } from './bookmarks.js';
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
@@ -195,6 +196,10 @@ async function handleMessage(msg) {
       };
       await state.setSpaces([...spaces, space]);
       if (msg.iconData) await state.setIcon(id, msg.iconData);
+      if (msg.linkFolderId) {
+        const nodes = await chrome.bookmarks.get(msg.linkFolderId).catch(() => null);
+        if (nodes?.[0] && !nodes[0].url) await linkSpaceFolder(id, msg.linkFolderId);
+      }
       if (msg.fromWindowId != null) {
         // "Save this window as a Space": adopt its live tabs.
         await state.updateWinMap((m) => {
@@ -258,9 +263,12 @@ async function handleMessage(msg) {
       let folders = [];
       try {
         rootId = await getSpacesRootId();
+        const folderMap = await getSpaceFolderMap();
+        const allSpaces = await state.getSpaces();
+        const ownedIds = new Set(allSpaces.map((s) => folderMap[s.id]).filter(Boolean));
         folders = (await chrome.bookmarks.getChildren(rootId))
           .filter((n) => !n.url)
-          .map((n) => ({ id: n.id, title: n.title }));
+          .map((n) => ({ id: n.id, title: n.title, linked: ownedIds.has(n.id) }));
       } catch {
         return { ok: true, rootId: null, folders: [], currentSpaceId, defaultFolderId: null, barFolderId: null };
       }

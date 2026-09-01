@@ -65,6 +65,15 @@ export function ensureSpaceFolder(spaceId) {
   return folderForSpace(spaceId);
 }
 
+// Explicitly adopt an existing folder as a Space's own (used when creating
+// a Space whose name matches an orphaned folder — user-confirmed, so the
+// implicit title-matching hazard doesn't apply).
+export async function linkSpaceFolder(spaceId, folderId) {
+  const { [K_FOLDERS]: map = {} } = await chrome.storage.local.get(K_FOLDERS);
+  map[spaceId] = folderId;
+  await chrome.storage.local.set({ [K_FOLDERS]: map });
+}
+
 async function folderForSpace(spaceId) {
   const { [K_FOLDERS]: map = {} } = await chrome.storage.local.get(K_FOLDERS);
   if (map[spaceId]) {

@@ -165,6 +165,7 @@ async function saveEditor(form) {
       color,
       emoji: icon.emoji,
       iconData: icon.imageData || undefined,
+      linkFolderId: form._link(),
       fromWindowId: adopt ? windowId : undefined
     });
     if (!result?.ok) toast(result?.error ?? 'Could not create Space');
@@ -370,17 +371,39 @@ function renderEditor(space = null) {
   );
   refreshIconBtn();
 
+  const nameInput = el('input', {
+    type: 'text',
+    class: 'name-input',
+    placeholder: 'Space name',
+    maxlength: '40',
+    value: space?.name ?? ''
+  });
+
+  // When creating a Space whose name matches an orphaned folder under
+  // Other Bookmarks / Spaces, offer to adopt it instead of creating a
+  // duplicate folder later.
+  let linkFolderId = null;
+  const linkCheck = el('input', { type: 'checkbox', class: 'link-check', checked: '' });
+  const linkLabel = el('span', {});
+  const linkRow = el('label',
+    { class: 'row', hidden: '', style: 'font-size:12px; gap:6px; cursor:pointer' },
+    linkCheck, linkLabel
+  );
+  const updateLinkOffer = () => {
+    if (!isNew) return;
+    const name = nameInput.value.trim().toLowerCase();
+    const match = name
+      ? bmState.folders.find((f) => !f.linked && f.title.trim().toLowerCase() === name)
+      : null;
+    linkFolderId = match?.id ?? null;
+    linkRow.hidden = !match;
+    if (match) linkLabel.textContent = `Link existing bookmark folder “${match.title}”`;
+  };
+  nameInput.addEventListener('input', updateLinkOffer);
+
   const form = el('div', { class: 'editor' },
-    el('div', { class: 'row' },
-      iconBtn,
-      el('input', {
-        type: 'text',
-        class: 'name-input',
-        placeholder: 'Space name',
-        maxlength: '40',
-        value: space?.name ?? ''
-      })
-    ),
+    el('div', { class: 'row' }, iconBtn, nameInput),
+    isNew ? linkRow : null,
     picker,
     swatches,
     isNew && !currentSpace()
@@ -413,7 +436,9 @@ function renderEditor(space = null) {
   });
 
   setColor(initialColor);
+  updateLinkOffer();
   form._icon = () => ({ emoji: pendingEmoji, imageData: pendingImage, dirty: iconDirty });
+  form._link = () => (isNew && linkFolderId && linkCheck.checked ? linkFolderId : undefined);
   return form;
 }
 
