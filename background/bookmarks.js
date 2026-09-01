@@ -15,6 +15,7 @@ import { getSpaces, getSettings } from './state.js';
 
 const K_FOLDERS = 'bookmarkFolders'; // spaceId -> folderId
 const K_BAR_OWNER = 'barSpaceId'; // which Space's bookmarks are on the bar
+const K_BAR_FOLDER = 'barFolderId'; // which folder the bar's contents came from
 const ROOT_FOLDER_NAME = 'Spaces';
 const ARCHIVE_FOLDER_NAME = 'Saved bar';
 
@@ -95,6 +96,33 @@ export function setBarOwner(spaceId) {
   return chrome.storage.local.set({ [K_BAR_OWNER]: spaceId });
 }
 
+export async function getBarFolderId() {
+  const { [K_BAR_FOLDER]: id } = await chrome.storage.local.get(K_BAR_FOLDER);
+  return id ?? null;
+}
+
+// Returns the id if it names an existing folder, else null.
+async function verifyFolder(id) {
+  if (!id) return null;
+  const nodes = await chrome.bookmarks.get(id).catch(() => null);
+  return nodes?.[0] && !nodes[0].url ? id : null;
+}
+
+// Return the bar's current contents to the folder they came from
+// (preferred), the owner Space's folder (legacy fallback), or the archive.
+async function stashBar(barId, spaces, ownerId, recordedFolderId) {
+  const barChildren = await chrome.bookmarks.getChildren(barId);
+  if (!barChildren.length) return;
+  let stashId = await verifyFolder(recordedFolderId);
+  if (!stashId && ownerId && spaces.some((s) => s.id === ownerId)) {
+    stashId = await folderForSpace(ownerId);
+  }
+  if (!stashId) {
+    stashId = await findOrCreateFolder(await getSpacesRootId(), ARCHIVE_FOLDER_NAME);
+  }
+  await moveChildren(barId, stashId);
+}
+
 // Swap the bar from its current owner to targetSpaceId. `fallbackOwnerId`
 // is the Space the calling window was showing — used the first time this
 // feature runs, when no owner has been recorded yet.
@@ -109,33 +137,55 @@ export function swapBars(fallbackOwnerId, targetSpaceId) {
     try {
       if (mySeq !== swapSeq) return; // superseded by a newer swap
       if ((await getSettings()).bookmarkMode === 'off') return;
-      const { [K_BAR_OWNER]: recorded } = await chrome.storage.local.get(K_BAR_OWNER);
-      const owner = recorded ?? fallbackOwnerId ?? null;
-      if (owner === targetSpaceId) {
-        await setBarOwner(targetSpaceId);
+      const store = await chrome.storage.local.get([K_BAR_OWNER, K_BAR_FOLDER]);
+      const owner = store[K_BAR_OWNER] ?? fallbackOwnerId ?? null;
+      const spaces = await getSpaces();
+      const target = spaces.find((s) => s.id === targetSpaceId);
+      if (!target) return;
+
+      // The Space's bar shows its configured default folder when set,
+      // otherwise its own folder.
+      const loadId = (await verifyFolder(target.bookmarkFolderId)) ?? (await folderForSpace(targetSpaceId));
+      const currentFolder =
+        (await verifyFolder(store[K_BAR_FOLDER])) ??
+        (owner && spaces.some((s) => s.id === owner) ? await folderForSpace(owner) : null);
+      if (owner === targetSpaceId && currentFolder === loadId) {
+        await chrome.storage.local.set({ [K_BAR_OWNER]: targetSpaceId, [K_BAR_FOLDER]: loadId });
         return;
       }
       const bar = await getBarNode();
       if (!bar) return;
-      const spaces = await getSpaces();
 
-      // Stash the bar's contents with whoever owned them.
-      const barChildren = await chrome.bookmarks.getChildren(bar.id);
-      if (barChildren.length) {
-        const stashId =
-          owner && spaces.some((s) => s.id === owner)
-            ? await folderForSpace(owner)
-            : await findOrCreateFolder(await getSpacesRootId(), ARCHIVE_FOLDER_NAME);
-        await moveChildren(bar.id, stashId);
-      }
-
-      // Load the incoming Space's bookmarks onto the bar.
-      if (spaces.some((s) => s.id === targetSpaceId)) {
-        await moveChildren(await folderForSpace(targetSpaceId), bar.id);
-      }
-      await setBarOwner(targetSpaceId);
+      await stashBar(bar.id, spaces, owner, currentFolder);
+      await moveChildren(loadId, bar.id);
+      await chrome.storage.local.set({ [K_BAR_OWNER]: targetSpaceId, [K_BAR_FOLDER]: loadId });
     } catch (e) {
       console.warn('Spaces: bookmark bar swap failed', e);
+    }
+  });
+}
+
+// Explicitly put a folder's contents on the bookmarks bar right now
+// ("on the fly"). Works in any bookmark mode — it's a direct user action.
+export function loadFolderToBar(folderId, ownerSpaceId = null) {
+  const mySeq = ++swapSeq; // participates in latest-wins with swapBars
+  return enqueue(async () => {
+    try {
+      if (mySeq !== swapSeq) return;
+      const loadId = await verifyFolder(folderId);
+      if (!loadId) return;
+      const store = await chrome.storage.local.get([K_BAR_OWNER, K_BAR_FOLDER]);
+      if (store[K_BAR_FOLDER] === loadId) return; // already on the bar
+      const bar = await getBarNode();
+      if (!bar) return;
+      const spaces = await getSpaces();
+      await stashBar(bar.id, spaces, store[K_BAR_OWNER] ?? ownerSpaceId ?? null, store[K_BAR_FOLDER]);
+      await moveChildren(loadId, bar.id);
+      const update = { [K_BAR_FOLDER]: loadId };
+      if (ownerSpaceId) update[K_BAR_OWNER] = ownerSpaceId;
+      await chrome.storage.local.set(update);
+    } catch (e) {
+      console.warn('Spaces: load folder to bar failed', e);
     }
   });
 }
@@ -159,16 +209,15 @@ export function renameSpaceFolder(spaceId, newName) {
 export function onSpaceDeleted(spaceId) {
   return enqueue(async () => {
     try {
-      const { [K_BAR_OWNER]: owner } = await chrome.storage.local.get(K_BAR_OWNER);
-      if (owner === spaceId) {
+      const store = await chrome.storage.local.get([K_BAR_OWNER, K_BAR_FOLDER]);
+      if (store[K_BAR_OWNER] === spaceId) {
         const bar = await getBarNode();
         if (bar) {
+          const stashId = (await verifyFolder(store[K_BAR_FOLDER])) ?? (await folderForSpace(spaceId));
           const barChildren = await chrome.bookmarks.getChildren(bar.id);
-          if (barChildren.length) {
-            await moveChildren(bar.id, await folderForSpace(spaceId));
-          }
+          if (barChildren.length) await moveChildren(bar.id, stashId);
         }
-        await chrome.storage.local.remove(K_BAR_OWNER);
+        await chrome.storage.local.remove([K_BAR_OWNER, K_BAR_FOLDER]);
       }
       const { [K_FOLDERS]: map = {} } = await chrome.storage.local.get(K_FOLDERS);
       if (map[spaceId]) {

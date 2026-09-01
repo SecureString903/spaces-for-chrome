@@ -11,7 +11,9 @@ import {
   swapBars,
   getSpacesRootId,
   getSpaceFolderMap,
-  ensureSpaceFolder
+  ensureSpaceFolder,
+  loadFolderToBar,
+  getBarFolderId
 } from './bookmarks.js';
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
@@ -260,12 +262,11 @@ async function handleMessage(msg) {
           .filter((n) => !n.url)
           .map((n) => ({ id: n.id, title: n.title }));
       } catch {
-        return { ok: true, rootId: null, folders: [], currentSpaceId, defaultFolderId: null, spaceFolderId: null };
+        return { ok: true, rootId: null, folders: [], currentSpaceId, defaultFolderId: null, barFolderId: null };
       }
-      let spaceFolderId = null;
       let defaultFolderId = null;
       if (currentSpaceId) {
-        spaceFolderId = (await getSpaceFolderMap())[currentSpaceId] ?? null;
+        const spaceFolderId = (await getSpaceFolderMap())[currentSpaceId] ?? null;
         const spaces = await state.getSpaces();
         defaultFolderId = spaces.find((s) => s.id === currentSpaceId)?.bookmarkFolderId ?? spaceFolderId;
         if (defaultFolderId) {
@@ -273,7 +274,13 @@ async function handleMessage(msg) {
           if (!node) defaultFolderId = spaceFolderId;
         }
       }
-      return { ok: true, rootId, folders, currentSpaceId, defaultFolderId, spaceFolderId };
+      return { ok: true, rootId, folders, currentSpaceId, defaultFolderId, barFolderId: await getBarFolderId() };
+    }
+
+    case 'loadFolderToBar': {
+      const map = await state.getWinMap();
+      await loadFolderToBar(msg.folderId, map[msg.windowId] ?? null);
+      return { ok: true };
     }
 
     case 'ensureSpaceFolder': {

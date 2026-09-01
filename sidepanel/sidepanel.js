@@ -540,7 +540,7 @@ async function renderTabs() {
 const bmState = {
   folders: [],
   defaultFolderId: null,
-  spaceFolderId: null,
+  barFolderId: null,
   viewFolderId: null,
   stack: [],
   lastSpaceId: undefined
@@ -551,7 +551,7 @@ async function refreshBookmarkState() {
   if (!res?.ok) return;
   bmState.folders = res.folders;
   bmState.defaultFolderId = res.defaultFolderId;
-  bmState.spaceFolderId = res.spaceFolderId;
+  bmState.barFolderId = res.barFolderId;
   if (bmState.lastSpaceId !== res.currentSpaceId) {
     bmState.lastSpaceId = res.currentSpaceId;
     bmState.viewFolderId = res.defaultFolderId ?? res.folders[0]?.id ?? null;
@@ -652,12 +652,9 @@ async function renderBookmarks() {
   }
 
   if (!children.length) {
-    const barMode = (appState.settings?.bookmarkMode ?? 'switch') === 'switch';
-    const isCurrentSpaceFolder = bmState.viewFolderId === bmState.spaceFolderId;
-    note.textContent = '';
     list.append(el('li', { class: 'empty-note' },
-      barMode && isCurrentSpaceFolder
-        ? "Empty — this Space's bookmarks are currently on the bookmarks bar."
+      bmState.viewFolderId === bmState.barFolderId
+        ? "Empty here — this folder's bookmarks are currently on the bookmarks bar."
         : 'Empty folder. Use ★ to bookmark the current tab here.'
     ));
   }
@@ -778,6 +775,12 @@ function initListeners() {
     bmState.stack = [];
     renderBookmarks();
   });
+  $('#bm-bar-btn').addEventListener('click', async () => {
+    if (!bmState.viewFolderId) return;
+    const result = await send({ type: 'loadFolderToBar', folderId: bmState.viewFolderId, windowId });
+    if (result?.ok) toast('Loaded onto the bookmarks bar');
+    await refreshAndRender();
+  });
   $('#bm-pin-btn').addEventListener('click', async () => {
     const space = currentSpace();
     if (!space) {
@@ -793,7 +796,11 @@ function initListeners() {
     if (result?.ok) {
       bmState.defaultFolderId = bmState.viewFolderId;
       toast(`Default folder set for “${space.name}”`);
-      renderBookmarks();
+      // In bar-swap modes, apply the new default to the bar immediately.
+      if ((appState.settings?.bookmarkMode ?? 'switch') !== 'off') {
+        await send({ type: 'loadFolderToBar', folderId: bmState.viewFolderId, windowId });
+      }
+      await refreshAndRender();
     }
   });
   $('#bm-add-btn').addEventListener('click', async () => {

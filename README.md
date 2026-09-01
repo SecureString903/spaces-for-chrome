@@ -28,11 +28,12 @@ place — one clean window per context.
   switched-to Space.
 - **Bookmarks in the side panel** — a Bookmarks section shows any folder
   under *Other Bookmarks → Spaces*: pick a folder on the fly, drill into
-  subfolders, click to open (Ctrl+click for a background tab), ★ to
-  bookmark the current tab into the folder, and 📌 to make the viewed
-  folder the default for the current Space. Because this only *reads*
-  bookmarks, it's the sync-friendly alternative to bar swapping for
-  multi-computer use.
+  subfolders, click to open (Ctrl+click for a background tab), and ★ to
+  bookmark the current tab into the folder. ⬆ loads the viewed folder
+  onto the real bookmarks bar immediately, and 📌 makes it the Space's
+  default — in bar-swap modes, switching to the Space then puts that
+  folder on the bar. Browsing in the panel only *reads* bookmarks, so
+  panel-only use is the sync-friendly choice for multi-computer profiles.
 - **Keyboard shortcuts** — `Ctrl+Shift+.` / `Ctrl+Shift+,` cycle Spaces
   (customizable at `chrome://extensions/shortcuts`).
 - **Safety nets** — tabs are saved *before* anything closes, and the last 15
