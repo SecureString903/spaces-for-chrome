@@ -91,6 +91,10 @@ bookmarks** in Options. (Running bookmark swapping on two computers at
 once against one synced profile is not supported — both installs would
 fight over the single synced bar.)
 
-## Roadmap
+## Releasing
 
-- Chrome Web Store packaging (icons/screenshots/privacy policy)
+1. Run through [TESTING.md](TESTING.md) (~20 min).
+2. Bump `version` in `manifest.json`.
+3. `scripts/package.ps1` → upload `dist/spaces-v<version>.zip` to the
+   Chrome Web Store dashboard (listing copy lives in
+   `store-assets/listing.md`).
