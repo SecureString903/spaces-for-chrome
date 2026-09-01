@@ -2,7 +2,7 @@
 
 import { PALETTE, DEFAULT_SPACE_NAME, SCHEMA_VERSION } from '../shared/constants.js';
 import * as state from './state.js';
-import { initTracker, switching } from './tracker.js';
+import { initTracker } from './tracker.js';
 import { switchSpace, cycleSpace, openTabsInNewWindow } from './switcher.js';
 import { setBarOwner, renameSpaceFolder, onSpaceDeleted, swapBars } from './bookmarks.js';
 
@@ -111,30 +111,17 @@ chrome.windows.onFocusChanged.addListener(async (windowId) => {
   }
 });
 
-// ---- Keep the window open when its last tab is closed (optional) ----
-//
-// Closing a tab directly reports isWindowClosing=false even when it's the
-// last one. Two lines of defense:
-//   1. Fast path: from in-memory caches, create a replacement tab the
-//      instant the removal event fires, hoping to beat window teardown.
-//   2. Resurrection: a direct last-tab close marks the window; if the
-//      window dies anyway (teardown won, or the created tab landed in a
-//      doomed window), windows.onRemoved sees the fresh marker, reopens a
-//      window with the homepage, and re-attaches it to the Space.
-// Closing the whole window (✕ / Ctrl+Shift+W) reports isWindowClosing=true
-// for its tabs, never sets the marker, and is always left alone.
-
-let cachedSettings = null;
-const settingsReady = state.getSettings().then((s) => (cachedSettings = s));
+// Re-enabling bookmark management after 'off': the recorded bar owner is
+// stale (the user may have switched Spaces and edited the bar while it was
+// off). The bar's contents belong to whatever Space the user is looking at
+// now.
+let lastBookmarkMode = null;
+state.getSettings().then((s) => (lastBookmarkMode = s.bookmarkMode));
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'sync' && changes.settings) {
-    const prevMode = cachedSettings?.bookmarkMode;
     state.getSettings().then(async (s) => {
-      cachedSettings = s;
-      // Re-enabling bookmark management: the recorded bar owner is stale
-      // (the user may have switched Spaces and edited the bar while it was
-      // off). The bar's contents belong to whatever Space the user is
-      // looking at now.
+      const prevMode = lastBookmarkMode;
+      lastBookmarkMode = s.bookmarkMode;
       if (prevMode === 'off' && s.bookmarkMode !== 'off') {
         const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'] }).catch(() => null);
         const map = await state.getWinMap();
@@ -144,183 +131,12 @@ chrome.storage.onChanged.addListener((changes, area) => {
   }
 });
 
-const tabCounts = new Map();
-// Last known geometry per window, so a resurrected window reappears in
-// exactly the same place — the close+reopen then reads as a repaint.
-const windowBounds = new Map();
-const rememberBounds = (win) => {
-  if (win.type !== 'normal') return;
-  windowBounds.set(win.id, {
-    left: win.left, top: win.top, width: win.width, height: win.height, state: win.state
-  });
-};
-chrome.windows
-  .getAll({ windowTypes: ['normal'], populate: true })
-  .then((wins) => {
-    for (const w of wins) {
-      if (!tabCounts.has(w.id)) tabCounts.set(w.id, w.tabs.length);
-      rememberBounds(w);
-    }
-  })
-  .catch(() => {});
-chrome.windows.onBoundsChanged.addListener(rememberBounds);
-const bumpCount = (windowId, delta) => {
-  const known = tabCounts.get(windowId);
-  if (known !== undefined) tabCounts.set(windowId, Math.max(0, known + delta));
-};
-const reseedCount = (windowId) => {
-  chrome.tabs.query({ windowId })
-    .then((tabs) => tabCounts.set(windowId, tabs.length))
-    .catch(() => {});
-};
-chrome.tabs.onCreated.addListener((tab) => bumpCount(tab.windowId, +1));
-// Attach/detach race the windows.onCreated seeding query (a dragged-out tab
-// fires both), so arithmetic double-counts; a fresh query is idempotent.
-chrome.tabs.onAttached.addListener((tabId, info) => reseedCount(info.newWindowId));
-chrome.tabs.onDetached.addListener((tabId, info) => reseedCount(info.oldWindowId));
-// Seed counts for windows created after service-worker start — without
-// this, new windows have no count and the fast path below can never run.
-chrome.windows.onCreated.addListener((win) => {
-  if (win.type !== 'normal') return;
-  rememberBounds(win);
-  reseedCount(win.id);
-});
-
-// windowId -> timestamp of a direct (isWindowClosing=false) last-tab close.
-const pendingKeepAlive = new Map();
-
-// After a replacement tab lands, confirm the window actually survived and
-// clear the marker so a genuine window close right after isn't undone.
-function armKeepAliveProbe(windowId) {
-  setTimeout(async () => {
-    const win = await chrome.windows.get(windowId).catch(() => null);
-    if (win) pendingKeepAlive.delete(windowId);
-  }, 500);
-}
-
-chrome.tabs.onRemoved.addListener((tabId, info) => {
-  if (info.isWindowClosing) return;
-  const known = tabCounts.get(info.windowId);
-  const remaining = known !== undefined ? Math.max(0, known - 1) : undefined;
-  if (known !== undefined) tabCounts.set(info.windowId, remaining);
-
-  // Fast path: the count says that was the last tab and everything needed
-  // is already in memory — call create with NO awaits in between, so it
-  // reaches the browser before window teardown commits and the window
-  // simply gets a fresh tab instead of closing.
-  if (remaining === 0 && cachedSettings?.keepWindowOpen && !switching.has(info.windowId)) {
-    pendingKeepAlive.set(info.windowId, Date.now());
-    chrome.tabs.create({
-      windowId: info.windowId,
-      url: cachedSettings.homepageUrl || undefined
-    })
-      .then(() => armKeepAliveProbe(info.windowId))
-      // Rejected create = the window is already tearing down. Don't wait
-      // for windows.onRemoved — resurrect immediately.
-      .catch(() => resurrectIfMarked(info.windowId));
-    return;
-  }
-  keepWindowOpen(info.windowId, remaining);
-});
-
-async function keepWindowOpen(windowId, remainingHint) {
-  try {
-    if (!cachedSettings) await settingsReady;
-    if (!cachedSettings?.keepWindowOpen) return;
-    if (switching.has(windowId)) return;
-
-    // Mark FIRST: on a cold start the tabs.query below races window
-    // teardown, and windows.onRemoved must find the marker to resurrect.
-    // This path only runs for direct tab closes (never window closes), so
-    // if the window dies while the marker is set, it was the last tab.
-    // A close that leaves tabs behind clears the marker just below.
-    pendingKeepAlive.set(windowId, Date.now());
-
-    let remaining = remainingHint;
-    if (remaining === undefined) {
-      const tabs = await chrome.tabs.query({ windowId }).catch(() => null);
-      // A failed query means the window is already gone — lost race.
-      remaining = tabs ? tabs.length : 0;
-    }
-    if (remaining > 0) {
-      pendingKeepAlive.delete(windowId);
-      return;
-    }
-
-    const url = cachedSettings.homepageUrl || undefined;
-    const tab = await chrome.tabs.create({ windowId, url }).catch(() => null);
-    if (tab) {
-      armKeepAliveProbe(windowId);
-    } else {
-      // Window already tearing down — resurrect (parity with the fast path).
-      await resurrectIfMarked(windowId);
-    }
-  } catch (e) {
-    console.warn('Spaces: keep-window-open failed', e);
-  }
-}
-
-// Space of each recently closed window, kept briefly so resurrection can
-// re-attach a window whose mapping was already wiped.
-const recentlyClosedSpaces = new Map();
-
 chrome.windows.onRemoved.addListener(async (windowId) => {
-  tabCounts.delete(windowId);
   await state.updateWinMap((map) => {
-    if (map[windowId]) {
-      recentlyClosedSpaces.set(windowId, map[windowId]);
-      setTimeout(() => recentlyClosedSpaces.delete(windowId), 15000);
-      delete map[windowId];
-    }
+    delete map[windowId];
     return map;
   });
-  await resurrectIfMarked(windowId);
-  windowBounds.delete(windowId);
 });
-
-// Reopen a window that died from a direct last-tab close: same geometry,
-// same Space, homepage tab. The marker check makes this run at most once
-// per closed window, whichever caller gets there first.
-async function resurrectIfMarked(windowId) {
-  let markedAt = pendingKeepAlive.get(windowId);
-  if (!markedAt) {
-    // On a cold start the slow path may still be setting the marker while
-    // windows.onRemoved gets here first — give it one beat.
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    markedAt = pendingKeepAlive.get(windowId);
-  }
-  if (!markedAt || Date.now() - markedAt > 3000) return;
-  pendingKeepAlive.delete(windowId);
-  if (!cachedSettings) await settingsReady;
-  if (!cachedSettings?.keepWindowOpen) return;
-
-  const spaceId = (await state.getWinMap())[windowId] ?? recentlyClosedSpaces.get(windowId);
-  const opts = { url: cachedSettings.homepageUrl || undefined, focused: true };
-  const bounds = windowBounds.get(windowId);
-  // Always create with explicit coordinates — they pin the window to the
-  // monitor the old one was on. chrome.windows.create can't combine
-  // coordinates with a maximized state, so maximize in a second step.
-  if (bounds && bounds.state !== 'minimized') {
-    opts.left = bounds.left;
-    opts.top = bounds.top;
-    opts.width = bounds.width;
-    opts.height = bounds.height;
-  }
-  const win = await chrome.windows.create(opts).catch(() => null);
-  if (win && (bounds?.state === 'maximized' || bounds?.state === 'fullscreen')) {
-    await chrome.windows.update(win.id, { state: 'maximized' }).catch(() => {});
-  }
-  if (win && spaceId) {
-    await state.updateWinMap((m) => {
-      delete m[windowId];
-      // If another window claimed the Space while we were reopening,
-      // leave the new window unattached rather than double-mapping.
-      if (!Object.values(m).includes(spaceId)) m[win.id] = spaceId;
-      return m;
-    });
-  }
-  windowBounds.delete(windowId);
-}
 
 chrome.commands.onCommand.addListener((command) => {
   if (command === 'next-space') cycleSpace(1);

@@ -19,8 +19,6 @@ export const DEFAULT_SETTINGS = {
   bookmarkMode: 'switch', // 'switch' | 'follow' | 'off'
   lazyLoad: true,
   maxBackups: 15,
-  keepWindowOpen: false,
-  homepageUrl: '', // empty = Chrome's New Tab page
   chipStyle: 'name' // 'name' | 'icon' — current-Space indicator in the panel
 };
 

@@ -69,9 +69,19 @@ scripts/gen-icons.ps1  Regenerates icons/*.png
 
 The gear icon in the panel (or the extension's Options entry) opens the
 options page: bookmarks bar behavior (swap on switch / follow focused
-window / off), lazy-load toggle, keep-window-open-on-last-tab-close with
-a configurable homepage, and how many backups to keep. A welcome page
-opens once on first install.
+window / off), lazy-load toggle, current-Space display style, and how
+many backups to keep. A welcome page opens once on first install.
+
+## Using the same Chrome profile on several computers
+
+Chrome syncs bookmarks themselves, so the per-Space bookmarks bar swaps
+follow you to every signed-in computer: your other machines will show the
+last active Space's bar, with the remaining Spaces' bookmarks under
+**Other Bookmarks → Spaces**. Nothing is ever lost, but if you actively
+use multiple computers, set the bookmarks bar mode to **Don't manage
+bookmarks** in Options. (Running bookmark swapping on two computers at
+once against one synced profile is not supported — both installs would
+fight over the single synced bar.)
 
 ## Roadmap
 

@@ -2,8 +2,6 @@ const DEFAULTS = {
   bookmarkMode: 'switch',
   lazyLoad: true,
   maxBackups: 15,
-  keepWindowOpen: false,
-  homepageUrl: '',
   chipStyle: 'name'
 };
 
@@ -33,23 +31,14 @@ async function load() {
   checkRadio('bookmarkMode', s.bookmarkMode, DEFAULTS.bookmarkMode);
   document.querySelector('#lazyLoad').checked = s.lazyLoad;
   document.querySelector('#maxBackups').value = s.maxBackups;
-  document.querySelector('#keepWindowOpen').checked = s.keepWindowOpen;
-  document.querySelector('#homepageUrl').value = s.homepageUrl;
   checkRadio('chipStyle', s.chipStyle, DEFAULTS.chipStyle);
 }
 
 async function save() {
-  let homepageUrl = document.querySelector('#homepageUrl').value.trim();
-  if (homepageUrl && !/^[a-z][a-z0-9+.-]*:/i.test(homepageUrl)) {
-    homepageUrl = 'https://' + homepageUrl;
-    document.querySelector('#homepageUrl').value = homepageUrl;
-  }
   const settings = {
     bookmarkMode: document.querySelector('input[name="bookmarkMode"]:checked')?.value ?? 'switch',
     lazyLoad: document.querySelector('#lazyLoad').checked,
     maxBackups: Math.min(50, Math.max(1, Number(document.querySelector('#maxBackups').value) || 15)),
-    keepWindowOpen: document.querySelector('#keepWindowOpen').checked,
-    homepageUrl,
     chipStyle: document.querySelector('input[name="chipStyle"]:checked')?.value ?? 'name'
   };
   await chrome.storage.sync.set({ settings });

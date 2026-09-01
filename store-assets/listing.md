@@ -41,8 +41,11 @@ WHAT IT DOES
   Spaces (customizable).
 • Icons your way — give each Space a color, an emoji, a site's favicon,
   or an uploaded image.
-• Keep-window-open option — closing the last tab can open your homepage
-  instead of closing the window.
+
+NOTE FOR MULTI-COMPUTER USE: Chrome syncs bookmarks, so per-Space
+bookmarks bar swaps follow your profile to other computers. If you use
+several computers with one Chrome profile, set the bookmarks bar mode to
+"Don't manage bookmarks" in Options.
 
 PRIVATE BY DESIGN
 
