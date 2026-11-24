@@ -82,6 +82,27 @@
     </section>
 
     <section class="card">
+      <h2>Start page</h2>
+      <p>Spaces replaces the New Tab page with a Space-aware start page (clock, search, per-Space link groups, and each Space's homepage redirect). The extras below are optional — nothing leaves your browser unless you turn them on.</p>
+      <label class="number-row">
+        Greeting name
+        <input type="text" id="greetingName" class="url-input" placeholder="shown as &quot;Good morning, …&quot;" />
+      </label>
+      <label class="number-row">
+        Weather location
+        <input type="text" id="weatherCoords" class="url-input" placeholder="lat, lon — leave empty for no weather" />
+      </label>
+      <p>With a location set, the start page fetches the forecast from open-meteo.com — your coordinates only, nothing else.</p>
+      <label class="radio-row">
+        <input type="checkbox" id="statusChecks" />
+        <span>
+          <strong>Reachability dots</strong>
+          <span class="hint">Link groups marked "status dots" ping their own URLs from the start page to show up/down state (handy for homelab services). Only the URLs you listed are contacted.</span>
+        </span>
+      </label>
+    </section>
+
+    <section class="card">
       <h2>Backups</h2>
       <p>Tab lists are saved automatically before every switch and deletion.</p>
       <label class="number-row">

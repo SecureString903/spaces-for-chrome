@@ -112,6 +112,22 @@ Panel section
 - [ ] 📌 toggles: clicking it on the pinned folder clears the pin and the
       Space falls back to its own folder.
 
+## 7b. Start page (New Tab)
+
+- [ ] New tab shows the start page with the current Space's chip; an
+      unmapped window shows no chip but still works.
+- [ ] ✎ Edit: add a group (choosing per-Space vs all-Spaces), add links,
+      delete a link and a group; changes survive a new tab.
+- [ ] A per-Space group only appears in its Space; an all-Spaces group
+      appears everywhere.
+- [ ] Set a homepage URL on a Space: Ctrl+T in that Space goes straight
+      there; opening the new tab page with `#edit` bypasses the redirect.
+- [ ] With weather/status unset (defaults), the page makes zero network
+      requests (DevTools Network tab stays empty apart from extension
+      resources).
+- [ ] Opt-ins: weather coords show the forecast; "status dots" groups show
+      up/down with the footer summary when reachability is enabled.
+
 ## 8. Backups
 
 - [ ] Every switch adds a backup labeled with the outgoing Space.

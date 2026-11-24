@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>New Tab</title>
+  <link rel="stylesheet" href="newtab.css" />
+</head>
+<body>
+  <div class="bg"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
+
+  <header>
+    <div id="greeting"></div>
+    <div id="space-chip" hidden></div>
+    <div id="clock"></div>
+    <div class="sub"><span id="date"></span><span id="weather"></span></div>
+    <form id="search" action="https://www.google.com/search" method="get">
+      <svg viewBox="0 0 24 24" class="search-icon"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input name="q" type="search" placeholder="Search" autocomplete="off" />
+    </form>
+  </header>
+
+  <main id="groups"></main>
+
+  <footer>
+    <span id="lab-status"></span>
+    <span class="foot-actions">
+      <button id="edit-btn" class="foot-btn" title="Edit this Space's link groups">✎ Edit</button>
+      <button id="export-btn" class="foot-btn" hidden>Export JSON</button>
+      <button id="import-btn" class="foot-btn" hidden>Import JSON</button>
+    </span>
+  </footer>
+
+  <dialog id="io-dialog">
+    <p id="io-text"></p>
+    <textarea id="io-area" spellcheck="false"></textarea>
+    <div class="dialog-actions">
+      <button id="io-cancel" class="foot-btn">Close</button>
+      <button id="io-ok" class="primary-btn">Import</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="newtab.js"></script>
+</body>
+</html>

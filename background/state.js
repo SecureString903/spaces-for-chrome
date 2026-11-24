@@ -19,7 +19,12 @@ export const DEFAULT_SETTINGS = {
   bookmarkMode: 'switch', // 'switch' | 'follow' | 'pinned' | 'off'
   lazyLoad: true,
   maxBackups: 15,
-  chipStyle: 'name' // 'name' | 'icon' — current-Space indicator in the panel
+  chipStyle: 'name', // 'name' | 'icon' — current-Space indicator in the panel
+  // Start page (New Tab) — the network-touching extras are opt-in and off
+  // by default, keeping the base extension zero-network.
+  greetingName: '', // shown in the start-page greeting when set
+  weatherCoords: '', // "lat, lon" — empty disables weather entirely
+  statusChecks: false // reachability dots for link groups marked internal
 };
 
 export async function getSettings() {

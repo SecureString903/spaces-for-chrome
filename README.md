@@ -36,6 +36,12 @@ place — one clean window per context.
   default — in bar-swap modes, switching to the Space then puts that
   folder on the bar. Browsing in the panel only *reads* bookmarks, so
   panel-only use is the sync-friendly choice for multi-computer profiles.
+- **Space-aware start page** — the New Tab page shows a clock, search,
+  the current Space, and editable link groups (per Space, or shared
+  across all Spaces) with JSON import/export. A Space with a homepage
+  URL sends every new tab straight there (open the page with `#edit` to
+  bypass). Optional, off-by-default extras: weather (open-meteo, your
+  coordinates only) and reachability dots for groups you mark internal.
 - **Keyboard shortcuts** — `Ctrl+Shift+.` / `Ctrl+Shift+,` cycle Spaces
   (customizable at `chrome://extensions/shortcuts`).
 - **Safety nets** — tabs are saved *before* anything closes, and the last 15

@@ -28,14 +28,33 @@ your own signed-in Chrome browsers. This is Chrome's standard settings
 sync — the data goes to your Google account the same way your other
 Chrome settings do, and never to us.
 
+- **Start-page link groups** — the names and URLs of the links you add to
+  the Space-aware New Tab page.
+
 ## What the extension does NOT do
 
-- No data is sent to any server. The extension makes no network requests
-  of its own.
+- No data is sent to any server by default. The extension makes no network
+  requests of its own, with two strictly opt-in exceptions described in
+  the next section.
 - No analytics, telemetry, crash reporting, or tracking of any kind.
 - No accounts, no sign-in.
 - Your browsing history is not read; the extension only sees the tabs and
   bookmarks it needs to save and restore your Spaces.
+
+## Optional start-page features (off by default)
+
+The Space-aware New Tab page has two features that make network requests
+**only if you turn them on** in Options:
+
+- **Weather** — if you enter coordinates, the start page requests the
+  forecast from `api.open-meteo.com`. Only the coordinates you typed are
+  sent; no account, no identifiers, no other data.
+- **Reachability dots** — if enabled, link groups you mark with "status
+  dots" send a lightweight request to **the URLs you yourself added** (for
+  example your homelab services) to show whether they're up. No other
+  hosts are ever contacted.
+
+Leave both unconfigured and the extension makes no network requests at all.
 
 ## Why each permission is needed
 

@@ -48,6 +48,11 @@ WHAT IT DOES
   Spaces (customizable).
 • Icons your way — give each Space a color, an emoji, a site's favicon,
   or an uploaded image.
+• A Space-aware start page — the New Tab page shows a clock, search, and
+  your link groups (per Space or shared), edited right on the page. Give
+  a Space a homepage URL and new tabs in that Space go straight there.
+  Optional extras (weather, reachability dots for homelab links) are off
+  by default and clearly disclosed.
 
 NOTE FOR MULTI-COMPUTER USE: Chrome syncs bookmarks, so bookmarks bar
 swaps follow your profile to other computers. If you use several
@@ -67,7 +72,8 @@ Open source: https://github.com/SecureString903/spaces-for-chrome
 
 Spaces lets users organize their browser window into named workspaces and
 switch between them: it saves and restores each workspace's tabs, tab
-groups, and bookmarks-bar contents.
+groups, and bookmarks-bar contents, and provides a workspace-aware New
+Tab start page (per-workspace links and optional homepage redirect).
 
 ## Permission justifications (dashboard fields)
 
@@ -92,7 +98,9 @@ groups, and bookmarks-bar contents.
 ## Privacy disclosures (dashboard)
 
 - Does not collect any user data. All data stays in extension storage on
-  the user's device; no network requests are made.
+  the user's device; no network requests are made by default (two
+  opt-in start-page features — weather and reachability checks — are
+  documented in the privacy policy).
 - Privacy policy URL:
   https://github.com/SecureString903/spaces-for-chrome/blob/main/PRIVACY.md
 
