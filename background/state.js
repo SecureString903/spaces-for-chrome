@@ -16,7 +16,7 @@ const K_BACKUPS = 'backups';
 const K_SETTINGS = 'settings';
 
 export const DEFAULT_SETTINGS = {
-  bookmarkMode: 'switch', // 'switch' | 'follow' | 'off'
+  bookmarkMode: 'switch', // 'switch' | 'follow' | 'pinned' | 'off'
   lazyLoad: true,
   maxBackups: 15,
   chipStyle: 'name' // 'name' | 'icon' — current-Space indicator in the panel

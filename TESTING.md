@@ -87,6 +87,11 @@ Mode: **Follow focused window** (two windows, different Spaces)
 - [ ] Focusing each window brings its Space's bookmarks to the bar; rapid
       alt-tabbing settles on the last-focused window's Space (no hang).
 
+Mode: **Only for pinned Spaces**
+- [ ] Switching to a Space with a 📌 pinned folder loads it onto the bar;
+      switching to an unpinned Space leaves the bar exactly as it was.
+- [ ] Pinning a folder while in that Space applies to the bar immediately.
+
 Mode: **Don't manage bookmarks**
 - [ ] Switching Spaces leaves the bar untouched.
 - [ ] Turning management back on and switching re-anchors cleanly (bar

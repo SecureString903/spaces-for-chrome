@@ -79,8 +79,11 @@ scripts/gen-icons.ps1  Regenerates icons/*.png
 
 The gear icon in the panel (or the extension's Options entry) opens the
 options page: bookmarks bar behavior (swap on switch / follow focused
-window / off), lazy-load toggle, current-Space display style, and how
-many backups to keep. A welcome page opens once on first install.
+window / only for pinned Spaces / off), lazy-load toggle, current-Space
+display style, and how many backups to keep. A welcome page opens once
+on first install. The "pinned Spaces" mode is the middle ground: the
+bar is untouched except when switching to a Space whose folder you've
+📌-pinned.
 
 ## Using the same Chrome profile on several computers
 

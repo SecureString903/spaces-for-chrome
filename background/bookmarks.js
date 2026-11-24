@@ -161,16 +161,20 @@ export function swapBars(fallbackOwnerId, targetSpaceId) {
   return enqueue(async () => {
     try {
       if (mySeq !== swapSeq) return; // superseded by a newer swap
-      if ((await getSettings()).bookmarkMode === 'off') return;
+      const mode = (await getSettings()).bookmarkMode;
+      if (mode === 'off') return;
       const store = await chrome.storage.local.get([K_BAR_OWNER, K_BAR_FOLDER]);
       const owner = store[K_BAR_OWNER] ?? fallbackOwnerId ?? null;
       const spaces = await getSpaces();
       const target = spaces.find((s) => s.id === targetSpaceId);
       if (!target) return;
 
-      // The Space's bar shows its configured default folder when set,
-      // otherwise its own folder.
-      const loadId = (await verifyFolder(target.bookmarkFolderId)) ?? (await folderForSpace(targetSpaceId));
+      // The Space's bar shows its pinned folder when set, otherwise its
+      // own folder. In 'pinned' mode only pinned Spaces touch the bar —
+      // switching to an unpinned Space leaves it exactly as it is.
+      const pinnedId = await verifyFolder(target.bookmarkFolderId);
+      if (mode === 'pinned' && !pinnedId) return;
+      const loadId = pinnedId ?? (await folderForSpace(targetSpaceId));
       const currentFolder =
         (await verifyFolder(store[K_BAR_FOLDER])) ??
         (owner && spaces.some((s) => s.id === owner) ? await folderForSpace(owner) : null);
