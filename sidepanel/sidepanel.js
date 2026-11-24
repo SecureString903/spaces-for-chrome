@@ -612,13 +612,20 @@ async function renderBookmarks() {
   // from). The bookmarks bar itself is viewable too, for moving strays.
   const select = $('#bm-folder-select');
   const baseFolderId = bmState.stack[0] ?? bmState.viewFolderId;
+  // Same-titled folders (e.g. after a sync merge) get a numeric suffix in
+  // the dropdown so they're distinguishable.
+  const titleTotals = {};
+  for (const f of bmState.folders) titleTotals[f.title] = (titleTotals[f.title] ?? 0) + 1;
+  const titleSeen = {};
   select.replaceChildren(
     ...(bmState.barNodeId
       ? [el('option', { value: bmState.barNodeId, selected: bmState.barNodeId === baseFolderId ? '' : undefined }, '🗂 Bookmarks bar')]
       : []),
-    ...bmState.folders.map((f) =>
-      el('option', { value: f.id, selected: f.id === baseFolderId ? '' : undefined }, f.title)
-    )
+    ...bmState.folders.map((f) => {
+      titleSeen[f.title] = (titleSeen[f.title] ?? 0) + 1;
+      const label = titleTotals[f.title] > 1 ? `${f.title} (${titleSeen[f.title]})` : f.title;
+      return el('option', { value: f.id, selected: f.id === baseFolderId ? '' : undefined }, label);
+    })
   );
 
   const pinBtn = $('#bm-pin-btn');

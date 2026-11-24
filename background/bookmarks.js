@@ -61,8 +61,8 @@ export async function getSpaceFolderMap() {
   return map;
 }
 
-export function ensureSpaceFolder(spaceId) {
-  return folderForSpace(spaceId);
+export function ensureSpaceFolder(spaceId, opts) {
+  return folderForSpace(spaceId, opts);
 }
 
 // Explicitly adopt an existing folder as a Space's own (used when creating
@@ -74,7 +74,7 @@ export async function linkSpaceFolder(spaceId, folderId) {
   await chrome.storage.local.set({ [K_FOLDERS]: map });
 }
 
-async function folderForSpace(spaceId) {
+async function folderForSpace(spaceId, { allowAdopt = true } = {}) {
   const { [K_FOLDERS]: map = {} } = await chrome.storage.local.get(K_FOLDERS);
   if (map[spaceId]) {
     const nodes = await chrome.bookmarks.get(map[spaceId]).catch(() => null);
@@ -83,12 +83,23 @@ async function folderForSpace(spaceId) {
   const spaces = await getSpaces();
   const name = spaces.find((s) => s.id === spaceId)?.name || 'Space';
   const rootId = await getSpacesRootId();
-  // Always create a fresh folder rather than matching by title — a title
-  // match would fuse two same-named Spaces into one bookmark set.
-  const folder = await chrome.bookmarks.create({ parentId: rootId, title: name });
-  map[spaceId] = folder.id;
+  let folderId = null;
+  if (allowAdopt) {
+    // The mapping is lost or stale — Chrome sync merges can recreate
+    // folders under new node ids. Re-adopt a same-named folder that no
+    // other Space owns before creating an empty duplicate. (This never
+    // fuses two Spaces: an owned folder is never adopted.)
+    const owned = new Set(Object.values(map));
+    const children = await chrome.bookmarks.getChildren(rootId).catch(() => []);
+    folderId = children.find((n) => !n.url && !owned.has(n.id) && n.title === name)?.id ?? null;
+  }
+  if (!folderId) {
+    const folder = await chrome.bookmarks.create({ parentId: rootId, title: name });
+    folderId = folder.id;
+  }
+  map[spaceId] = folderId;
   await chrome.storage.local.set({ [K_FOLDERS]: map });
-  return folder.id;
+  return folderId;
 }
 
 async function moveChildren(fromId, toId) {

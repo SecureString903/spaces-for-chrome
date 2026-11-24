@@ -201,6 +201,10 @@ async function handleMessage(msg) {
         const nodes = await chrome.bookmarks.get(msg.linkFolderId).catch(() => null);
         if (nodes?.[0] && !nodes[0].url) await linkSpaceFolder(id, msg.linkFolderId);
       }
+      // Create the Space's folder right away so the panel's Bookmarks
+      // section shows it from the first switch. allowAdopt stays off:
+      // the create form's link checkbox was the explicit adopt decision.
+      await ensureSpaceFolder(id, { allowAdopt: false }).catch(() => {});
       if (msg.fromWindowId != null) {
         // "Save this window as a Space": adopt its live tabs.
         await state.updateWinMap((m) => {
