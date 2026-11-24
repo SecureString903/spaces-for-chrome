@@ -932,6 +932,32 @@ function initListeners() {
       await refreshAndRender();
     }
   });
+  $('#bm-manager-btn').addEventListener('click', () => {
+    if (!bmState.viewFolderId) return;
+    chrome.tabs.create({ url: `chrome://bookmarks/?id=${bmState.viewFolderId}` });
+  });
+  $('#bm-delete-btn').addEventListener('click', async () => {
+    if (!bmState.viewFolderId) return;
+    if (bmState.viewFolderId === bmState.barNodeId) {
+      toast("The bookmarks bar itself can't be deleted");
+      return;
+    }
+    const [node] = await chrome.bookmarks.get(bmState.viewFolderId).catch(() => [null]);
+    if (!node) return;
+    const children = await chrome.bookmarks.getChildren(node.id).catch(() => []);
+    const ok = await confirmDialog(
+      children.length
+        ? `Delete the folder “${node.title}” and its ${children.length} item${children.length === 1 ? '' : 's'}? This cannot be undone.`
+        : `Delete the empty folder “${node.title}”? This cannot be undone.`,
+      'Delete'
+    );
+    if (!ok) return;
+    await chrome.bookmarks.removeTree(node.id).catch(() => toast('Could not delete that folder'));
+    bmState.viewFolderId = null;
+    bmState.stack = [];
+    bmState.movingId = null;
+    await refreshAndRender();
+  });
   $('#bm-add-btn').addEventListener('click', async () => {
     if (!bmState.viewFolderId) return;
     const [active] = await chrome.tabs.query({ windowId, active: true });
