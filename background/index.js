@@ -14,6 +14,7 @@ import {
   ensureSpaceFolder,
   loadFolderToBar,
   getBarFolderId,
+  getBarNodeId,
   linkSpaceFolder
 } from './bookmarks.js';
 
@@ -282,7 +283,15 @@ async function handleMessage(msg) {
           if (!node) defaultFolderId = spaceFolderId;
         }
       }
-      return { ok: true, rootId, folders, currentSpaceId, defaultFolderId, barFolderId: await getBarFolderId() };
+      return {
+        ok: true,
+        rootId,
+        folders,
+        currentSpaceId,
+        defaultFolderId,
+        barFolderId: await getBarFolderId(),
+        barNodeId: await getBarNodeId()
+      };
     }
 
     case 'loadFolderToBar': {

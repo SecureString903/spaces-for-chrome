@@ -598,6 +598,14 @@ main {
   color: var(--accent);
 }
 
+.move-row {
+  padding: 2px 10px 6px 33px;
+}
+
+.move-row .bm-select {
+  width: 100%;
+}
+
 /* ---- Backups ---- */
 
 .backup-list {

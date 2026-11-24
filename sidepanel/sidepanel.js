@@ -566,8 +566,10 @@ const bmState = {
   folders: [],
   defaultFolderId: null,
   barFolderId: null,
+  barNodeId: null,
   viewFolderId: null,
   stack: [],
+  movingId: null, // row whose "move to…" chooser is open
   lastSpaceId: undefined
 };
 
@@ -577,6 +579,7 @@ async function refreshBookmarkState() {
   bmState.folders = res.folders;
   bmState.defaultFolderId = res.defaultFolderId;
   bmState.barFolderId = res.barFolderId;
+  bmState.barNodeId = res.barNodeId;
   if (bmState.lastSpaceId !== res.currentSpaceId) {
     bmState.lastSpaceId = res.currentSpaceId;
     bmState.viewFolderId = res.defaultFolderId ?? res.folders[0]?.id ?? null;
@@ -604,10 +607,14 @@ async function renderBookmarks() {
   }
   section.hidden = false;
 
-  // Folder dropdown reflects the top-level folder we're in (or entered from).
+  // Folder dropdown reflects the top-level folder we're in (or entered
+  // from). The bookmarks bar itself is viewable too, for moving strays.
   const select = $('#bm-folder-select');
   const baseFolderId = bmState.stack[0] ?? bmState.viewFolderId;
   select.replaceChildren(
+    ...(bmState.barNodeId
+      ? [el('option', { value: bmState.barNodeId, selected: bmState.barNodeId === baseFolderId ? '' : undefined }, '🗂 Bookmarks bar')]
+      : []),
     ...bmState.folders.map((f) =>
       el('option', { value: f.id, selected: f.id === baseFolderId ? '' : undefined }, f.title)
     )
@@ -640,11 +647,46 @@ async function renderBookmarks() {
     list.append(el('li', {
       class: 'tab-row',
       onclick: () => {
+        bmState.movingId = null;
         bmState.viewFolderId = bmState.stack.pop();
         renderBookmarks();
       }
     }, el('span', { class: 'bm-folder-icon' }, '◀'), el('span', { class: 'tab-title' }, 'Back')));
   }
+
+  const moveButton = (node) =>
+    el('button', {
+      class: 'icon-btn',
+      title: 'Move to another folder',
+      onclick: (e) => {
+        e.stopPropagation();
+        bmState.movingId = bmState.movingId === node.id ? null : node.id;
+        renderBookmarks();
+      }
+    }, '↪');
+
+  const moveChooser = (node) => {
+    const destinations = [
+      ...(bmState.barNodeId && bmState.viewFolderId !== bmState.barNodeId
+        ? [{ id: bmState.barNodeId, title: '🗂 Bookmarks bar' }]
+        : []),
+      ...bmState.folders.filter((f) => f.id !== bmState.viewFolderId && f.id !== node.id)
+    ];
+    const chooser = el('select', { class: 'bm-select' },
+      el('option', { value: '', selected: '', disabled: '' }, 'Move to…'),
+      ...destinations.map((d) => el('option', { value: d.id }, d.title))
+    );
+    chooser.addEventListener('change', async () => {
+      const dest = chooser.value;
+      bmState.movingId = null;
+      if (!dest) return;
+      await chrome.bookmarks.move(node.id, { parentId: dest })
+        .then(() => toast(`Moved “${(node.title || node.url || 'item').slice(0, 30)}”`))
+        .catch(() => toast('Could not move that item'));
+      renderBookmarks();
+    });
+    return el('li', { class: 'move-row' }, chooser);
+  };
 
   for (const node of children) {
     if (node.url) {
@@ -654,7 +696,8 @@ async function renderBookmarks() {
         onclick: (e) => openBookmark(node.url, e)
       },
         el('img', { class: 'tab-favicon', src: faviconUrl(node.url), alt: '' }),
-        el('span', { class: 'tab-title' }, node.title || node.url)
+        el('span', { class: 'tab-title' }, node.title || node.url),
+        moveButton(node)
       );
       row.addEventListener('auxclick', (e) => {
         if (e.button === 1) openBookmark(node.url, e);
@@ -665,15 +708,18 @@ async function renderBookmarks() {
         class: 'tab-row',
         title: node.title,
         onclick: () => {
+          bmState.movingId = null;
           bmState.stack.push(bmState.viewFolderId);
           bmState.viewFolderId = node.id;
           renderBookmarks();
         }
       },
         el('span', { class: 'bm-folder-icon' }, '📁'),
-        el('span', { class: 'tab-title' }, node.title || 'Folder')
+        el('span', { class: 'tab-title' }, node.title || 'Folder'),
+        moveButton(node)
       ));
     }
+    if (bmState.movingId === node.id) list.append(moveChooser(node));
   }
 
   if (!children.length) {
@@ -798,10 +844,15 @@ function initListeners() {
   $('#bm-folder-select').addEventListener('change', (e) => {
     bmState.viewFolderId = e.target.value;
     bmState.stack = [];
+    bmState.movingId = null;
     renderBookmarks();
   });
   $('#bm-bar-btn').addEventListener('click', async () => {
     if (!bmState.viewFolderId) return;
+    if (bmState.viewFolderId === bmState.barNodeId) {
+      toast('This is already the bookmarks bar');
+      return;
+    }
     const result = await send({ type: 'loadFolderToBar', folderId: bmState.viewFolderId, windowId });
     if (result?.ok) toast('Loaded onto the bookmarks bar');
     await refreshAndRender();
@@ -813,6 +864,10 @@ function initListeners() {
       return;
     }
     if (!bmState.viewFolderId) return;
+    if (bmState.viewFolderId === bmState.barNodeId) {
+      toast('Pick a folder under Spaces to set as default');
+      return;
+    }
     const result = await send({
       type: 'updateSpace',
       id: space.id,

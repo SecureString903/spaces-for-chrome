@@ -105,6 +105,11 @@ export function setBarOwner(spaceId) {
   return chrome.storage.local.set({ [K_BAR_OWNER]: spaceId });
 }
 
+export async function getBarNodeId() {
+  const bar = await getBarNode();
+  return bar?.id ?? null;
+}
+
 export async function getBarFolderId() {
   const { [K_BAR_FOLDER]: id } = await chrome.storage.local.get(K_BAR_FOLDER);
   return id ?? null;

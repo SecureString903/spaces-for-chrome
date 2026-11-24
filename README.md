@@ -29,7 +29,9 @@ place — one clean window per context.
 - **Bookmarks in the side panel** — a Bookmarks section shows any folder
   under *Other Bookmarks → Spaces*: pick a folder on the fly, drill into
   subfolders, click to open (Ctrl+click for a background tab), and ★ to
-  bookmark the current tab into the folder. ⬆ loads the viewed folder
+  bookmark the current tab into the folder. The bookmarks bar itself is
+  viewable in the dropdown, and ↪ on any row moves it between the bar
+  and Space folders — handy for sorting strays. ⬆ loads the viewed folder
   onto the real bookmarks bar immediately, and 📌 makes it the Space's
   default — in bar-swap modes, switching to the Space then puts that
   folder on the bar. Browsing in the panel only *reads* bookmarks, so

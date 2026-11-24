@@ -99,6 +99,9 @@ Panel section
 - [ ] ★ bookmarks the current tab into the viewed folder.
 - [ ] A folder whose contents are on the bar shows the "currently on the
       bookmarks bar" note instead of a bare "empty".
+- [ ] "Bookmarks bar" is selectable in the dropdown; ↪ on a row moves the
+      item into a chosen Space folder (and vice versa). Pin/⬆ refuse the
+      bar itself with a clear toast.
 
 ## 8. Backups
 
