@@ -96,6 +96,22 @@ bookmarks** in Options. (Running bookmark swapping on two computers at
 once against one synced profile is not supported — both installs would
 fight over the single synced bar.)
 
+## Integration API
+
+Other extensions (e.g. a custom New Tab page) can ask which Space a window
+is in:
+
+```js
+const res = await chrome.runtime.sendMessage(SPACES_EXTENSION_ID, {
+  type: 'getSpaceContext',
+  windowId: (await chrome.windows.getCurrent()).id
+});
+// res.space -> { id, name, color, emoji, homepageUrl, iconData } or null
+```
+
+Read-only, and exposes only the Space's identity and its optional homepage
+URL (set per Space in the editor) — never tabs, bookmarks, or history.
+
 ## Releasing
 
 1. Run through [TESTING.md](TESTING.md) (~20 min).

@@ -2,6 +2,7 @@
 // live tab info for the current window directly from chrome.tabs.
 
 import { PALETTE } from '../shared/constants.js';
+import { normalizeUrl } from '../shared/util.js';
 import { EMOJI } from './emoji.js';
 
 let windowId = null;
@@ -156,6 +157,7 @@ async function onSpaceClick(space) {
 async function saveEditor(form) {
   const name = form.querySelector('.name-input').value;
   const color = form.dataset.color || PALETTE[0].hex;
+  const homepageUrl = normalizeUrl(form._homepage());
   const icon = form._icon();
   if (editingSpaceId === 'new') {
     const adopt = form.querySelector('.adopt-check')?.checked;
@@ -166,11 +168,12 @@ async function saveEditor(form) {
       emoji: icon.emoji,
       iconData: icon.imageData || undefined,
       linkFolderId: form._link(),
+      homepageUrl: homepageUrl || undefined,
       fromWindowId: adopt ? windowId : undefined
     });
     if (!result?.ok) toast(result?.error ?? 'Could not create Space');
   } else {
-    const patch = { name, color, emoji: icon.emoji };
+    const patch = { name, color, emoji: icon.emoji, homepageUrl };
     if (icon.dirty) patch.iconData = icon.imageData ?? null;
     const result = await send({ type: 'updateSpace', id: editingSpaceId, patch });
     if (!result?.ok) toast(result?.error ?? 'Could not save Space');
@@ -331,9 +334,8 @@ function renderEditor(space = null) {
     title: 'Uses Chrome’s favicon cache — works for sites you’ve visited'
   });
   const useSiteFavicon = async () => {
-    let url = siteInput.value.trim();
+    const url = normalizeUrl(siteInput.value);
     if (!url) return;
-    if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = 'https://' + url;
     try {
       chooseImage(await imageToIcon(faviconUrl(url, 32)));
     } catch {
@@ -401,9 +403,18 @@ function renderEditor(space = null) {
   };
   nameInput.addEventListener('input', updateLinkOffer);
 
+  const homepageInput = el('input', {
+    type: 'text',
+    class: 'name-input',
+    placeholder: 'Homepage URL (optional)',
+    value: space?.homepageUrl ?? '',
+    title: 'Used by integrations (e.g. a New Tab extension) as this Space’s homepage'
+  });
+
   const form = el('div', { class: 'editor' },
     el('div', { class: 'row' }, iconBtn, nameInput),
     isNew ? linkRow : null,
+    el('div', { class: 'row' }, homepageInput),
     picker,
     swatches,
     isNew && !currentSpace()
@@ -439,6 +450,7 @@ function renderEditor(space = null) {
   updateLinkOffer();
   form._icon = () => ({ emoji: pendingEmoji, imageData: pendingImage, dirty: iconDirty });
   form._link = () => (isNew && linkFolderId && linkCheck.checked ? linkFolderId : undefined);
+  form._homepage = () => homepageInput.value;
   return form;
 }
 

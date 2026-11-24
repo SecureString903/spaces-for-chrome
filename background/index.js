@@ -162,6 +162,35 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   return true; // async response
 });
 
+// Read-only integration API for other extensions (e.g. a New Tab page that
+// adapts to the current Space). Exposes only the window's Space identity —
+// name, color, emoji/icon, homepage — never tabs, bookmarks, or history.
+chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
+  if (msg?.type !== 'getSpaceContext') return;
+  (async () => {
+    const map = await state.getWinMap();
+    const spaceId = msg.windowId != null ? map[msg.windowId] : null;
+    if (!spaceId) return { ok: true, space: null };
+    const space = (await state.getSpaces()).find((s) => s.id === spaceId);
+    if (!space) return { ok: true, space: null };
+    const icons = await state.getIcons();
+    return {
+      ok: true,
+      space: {
+        id: space.id,
+        name: space.name,
+        color: space.color,
+        emoji: space.emoji ?? '',
+        homepageUrl: space.homepageUrl ?? '',
+        iconData: icons[space.id] ?? ''
+      }
+    };
+  })()
+    .then(sendResponse)
+    .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
+  return true;
+});
+
 async function handleMessage(msg) {
   switch (msg.type) {
     case 'getState': {
@@ -195,6 +224,7 @@ async function handleMessage(msg) {
         emoji: (msg.emoji || '').trim(),
         order: spaces.length
       };
+      if (msg.homepageUrl) space.homepageUrl = msg.homepageUrl;
       await state.setSpaces([...spaces, space]);
       if (msg.iconData) await state.setIcon(id, msg.iconData);
       if (msg.linkFolderId) {
@@ -227,6 +257,10 @@ async function handleMessage(msg) {
       if (msg.patch && 'bookmarkFolderId' in msg.patch) {
         if (msg.patch.bookmarkFolderId) space.bookmarkFolderId = msg.patch.bookmarkFolderId;
         else delete space.bookmarkFolderId;
+      }
+      if (msg.patch && 'homepageUrl' in msg.patch) {
+        if (msg.patch.homepageUrl) space.homepageUrl = msg.patch.homepageUrl;
+        else delete space.homepageUrl;
       }
       await state.setSpaces(spaces);
       if (msg.patch && 'iconData' in msg.patch) {
