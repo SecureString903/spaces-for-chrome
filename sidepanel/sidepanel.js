@@ -578,6 +578,7 @@ async function refreshBookmarkState() {
   if (!res?.ok) return;
   bmState.folders = res.folders;
   bmState.defaultFolderId = res.defaultFolderId;
+  bmState.pinnedFolderId = res.pinnedFolderId;
   bmState.barFolderId = res.barFolderId;
   bmState.barNodeId = res.barNodeId;
   if (bmState.lastSpaceId !== res.currentSpaceId) {
@@ -623,9 +624,12 @@ async function renderBookmarks() {
   const pinBtn = $('#bm-pin-btn');
   const isDefault = bmState.viewFolderId === bmState.defaultFolderId;
   pinBtn.classList.toggle('pinned', isDefault);
-  pinBtn.title = isDefault
-    ? 'This folder is the default for the current Space'
-    : 'Show this folder by default for the current Space';
+  pinBtn.title =
+    bmState.viewFolderId === bmState.pinnedFolderId
+      ? 'Pinned as this Space’s default — click to unpin'
+      : isDefault
+        ? 'This folder is the default for the current Space'
+        : 'Show this folder by default for the current Space';
 
   const list = $('#bm-list');
   const note = $('#bm-note');
@@ -665,6 +669,28 @@ async function renderBookmarks() {
       }
     }, '↪');
 
+  const deleteButton = (node) =>
+    el('button', {
+      class: 'icon-btn',
+      title: node.url ? 'Delete bookmark' : 'Delete folder',
+      onclick: async (e) => {
+        e.stopPropagation();
+        if (node.url) {
+          await chrome.bookmarks.remove(node.id)
+            .then(() => toast('Bookmark deleted'))
+            .catch(() => toast('Could not delete that bookmark'));
+        } else {
+          const ok = await confirmDialog(
+            `Delete the folder “${node.title}” and everything inside it? This cannot be undone.`,
+            'Delete'
+          );
+          if (!ok) return;
+          await chrome.bookmarks.removeTree(node.id).catch(() => toast('Could not delete that folder'));
+        }
+        renderBookmarks();
+      }
+    }, '✕');
+
   const moveChooser = (node) => {
     const destinations = [
       ...(bmState.barNodeId && bmState.viewFolderId !== bmState.barNodeId
@@ -697,7 +723,8 @@ async function renderBookmarks() {
       },
         el('img', { class: 'tab-favicon', src: faviconUrl(node.url), alt: '' }),
         el('span', { class: 'tab-title' }, node.title || node.url),
-        moveButton(node)
+        moveButton(node),
+        deleteButton(node)
       );
       row.addEventListener('auxclick', (e) => {
         if (e.button === 1) openBookmark(node.url, e);
@@ -716,7 +743,8 @@ async function renderBookmarks() {
       },
         el('span', { class: 'bm-folder-icon' }, '📁'),
         el('span', { class: 'tab-title' }, node.title || 'Folder'),
-        moveButton(node)
+        moveButton(node),
+        deleteButton(node)
       ));
     }
     if (bmState.movingId === node.id) list.append(moveChooser(node));
@@ -866,6 +894,20 @@ function initListeners() {
     if (!bmState.viewFolderId) return;
     if (bmState.viewFolderId === bmState.barNodeId) {
       toast('Pick a folder under Spaces to set as default');
+      return;
+    }
+    // Toggle: clicking the pin on the explicitly pinned folder unpins it,
+    // returning the Space to its own folder.
+    if (bmState.viewFolderId === bmState.pinnedFolderId) {
+      const result = await send({
+        type: 'updateSpace',
+        id: space.id,
+        patch: { bookmarkFolderId: null }
+      });
+      if (result?.ok) {
+        toast(`Pin cleared — “${space.name}” uses its own folder`);
+        await refreshAndRender();
+      }
       return;
     }
     const result = await send({

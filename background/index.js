@@ -274,14 +274,16 @@ async function handleMessage(msg) {
         return { ok: true, rootId: null, folders: [], currentSpaceId, defaultFolderId: null, barFolderId: null };
       }
       let defaultFolderId = null;
+      let pinnedFolderId = null; // explicitly pinned (space.bookmarkFolderId) only
       if (currentSpaceId) {
         const spaceFolderId = (await getSpaceFolderMap())[currentSpaceId] ?? null;
         const spaces = await state.getSpaces();
-        defaultFolderId = spaces.find((s) => s.id === currentSpaceId)?.bookmarkFolderId ?? spaceFolderId;
-        if (defaultFolderId) {
-          const node = await chrome.bookmarks.get(defaultFolderId).catch(() => null);
-          if (!node) defaultFolderId = spaceFolderId;
+        pinnedFolderId = spaces.find((s) => s.id === currentSpaceId)?.bookmarkFolderId ?? null;
+        if (pinnedFolderId) {
+          const node = await chrome.bookmarks.get(pinnedFolderId).catch(() => null);
+          if (!node) pinnedFolderId = null;
         }
+        defaultFolderId = pinnedFolderId ?? spaceFolderId;
       }
       return {
         ok: true,
@@ -289,6 +291,7 @@ async function handleMessage(msg) {
         folders,
         currentSpaceId,
         defaultFolderId,
+        pinnedFolderId,
         barFolderId: await getBarFolderId(),
         barNodeId: await getBarNodeId()
       };

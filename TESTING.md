@@ -102,6 +102,10 @@ Panel section
 - [ ] "Bookmarks bar" is selectable in the dropdown; ↪ on a row moves the
       item into a chosen Space folder (and vice versa). Pin/⬆ refuse the
       bar itself with a clear toast.
+- [ ] ✕ deletes a bookmark instantly (toast); deleting a folder asks for
+      confirmation first.
+- [ ] 📌 toggles: clicking it on the pinned folder clears the pin and the
+      Space falls back to its own folder.
 
 ## 8. Backups
 
