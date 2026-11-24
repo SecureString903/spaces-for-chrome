@@ -200,7 +200,13 @@ export function loadFolderToBar(folderId, ownerSpaceId = null) {
       const loadId = await verifyFolder(folderId);
       if (!loadId) return;
       const store = await chrome.storage.local.get([K_BAR_OWNER, K_BAR_FOLDER]);
-      if (store[K_BAR_FOLDER] === loadId) return; // already on the bar
+      if (store[K_BAR_FOLDER] === loadId) {
+        // The record says this folder is already on the bar — but manual
+        // bookmark edits (or cleanups) can leave that record stale. If the
+        // folder still holds children, it clearly isn't loaded; proceed.
+        const kids = await chrome.bookmarks.getChildren(loadId).catch(() => []);
+        if (!kids.length) return; // genuinely already on the bar
+      }
       const bar = await getBarNode();
       if (!bar) return;
       const spaces = await getSpaces();
