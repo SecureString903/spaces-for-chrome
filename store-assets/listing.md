@@ -30,13 +30,16 @@ WHAT IT DOES
   (titles, colors, collapsed state), and the focused tab.
 • Live auto-save — the active Space continuously tracks every change, so
   its state is always current.
-• A bookmarks bar per Space — switching also swaps the bar's contents
-  through hidden folders under Other Bookmarks. Bookmarks are only ever
-  moved, never deleted.
-• Bookmarks in the side panel — browse any Space's bookmark folder
-  right in the panel, set a default folder per Space, and bookmark the
-  current tab with one click. A sync-friendly alternative to bar
-  swapping if you use several computers.
+• A bookmarks bar per Space — switching can swap the bar's contents
+  through folders under Other Bookmarks, with four modes: every switch,
+  follow the focused window, only for Spaces you've pinned a folder to,
+  or hands-off. The extension moves bookmarks, never deletes them on
+  its own.
+• Bookmarks in the side panel — browse any Space's folder (or the bar
+  itself), open, add, move, and organize bookmarks right in the panel,
+  pin a default folder per Space, or load any folder onto the bar with
+  one click. A sync-friendly alternative to bar swapping if you use
+  several computers.
 • Lazy loading — restored tabs load when you click them, so big Spaces
   switch instantly.
 • Safety nets — rolling backups of every replaced tab list, restorable
@@ -46,10 +49,11 @@ WHAT IT DOES
 • Icons your way — give each Space a color, an emoji, a site's favicon,
   or an uploaded image.
 
-NOTE FOR MULTI-COMPUTER USE: Chrome syncs bookmarks, so per-Space
-bookmarks bar swaps follow your profile to other computers. If you use
-several computers with one Chrome profile, set the bookmarks bar mode to
-"Don't manage bookmarks" in Options.
+NOTE FOR MULTI-COMPUTER USE: Chrome syncs bookmarks, so bookmarks bar
+swaps follow your profile to other computers. If you use several
+computers with one Chrome profile, choose "Only for pinned Spaces" (the
+bar moves only for Spaces you deliberately pin) or "Don't manage
+bookmarks" in Options.
 
 PRIVATE BY DESIGN
 
@@ -76,10 +80,12 @@ groups, and bookmarks-bar contents.
   backups, and settings locally in the browser.
 - **sidePanel** — The extension's primary interface is a side panel for
   viewing and switching workspaces.
-- **bookmarks** — Required for the per-workspace bookmarks bar: on a
+- **bookmarks** — Required for the per-workspace bookmarks bar (on a
   switch, the bar's bookmarks are moved into the outgoing workspace's
-  folder and the incoming workspace's bookmarks are moved onto the bar.
-  Bookmarks are moved, never deleted.
+  folder and the incoming workspace's bookmarks are moved onto the bar)
+  and for the side panel's bookmark browser, where users view, open,
+  add, move, and explicitly delete their own bookmarks. The extension
+  never deletes bookmarks on its own.
 - **favicon** — Required to display site icons next to saved tabs in the
   side panel.
 

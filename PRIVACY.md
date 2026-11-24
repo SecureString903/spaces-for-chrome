@@ -1,6 +1,6 @@
 # Privacy Policy — Spaces (Workspaces for Chrome)
 
-_Last updated: August 27, 2026_
+_Last updated: November 24, 2026_
 
 ## The short version
 
@@ -45,14 +45,15 @@ Chrome settings do, and never to us.
 | `tabGroups` | Preserve tab-group names, colors, and collapsed state across switches. |
 | `storage` | Keep your Spaces, snapshots, backups, and settings in the browser. |
 | `sidePanel` | Show the Spaces panel — the extension's main interface. |
-| `bookmarks` | Give each Space its own bookmarks bar by moving bookmarks between the bar and per-Space folders. Bookmarks are only ever moved, never deleted. |
+| `bookmarks` | Give each Space its own bookmarks bar by moving bookmarks between the bar and per-Space folders, and power the panel's bookmark browser (view, add, move). The extension never deletes a bookmark on its own — the only deletions are ones you explicitly make with the panel's delete buttons. |
 | `favicon` | Display site icons next to saved tabs in the panel. |
 
 ## Data removal
 
 Uninstalling the extension removes everything it stored, except your
 bookmarks: any bookmarks filed under *Other Bookmarks → Spaces* remain in
-your bookmarks (they are yours, and we never delete bookmarks).
+your bookmarks. They are yours — the extension never deletes a bookmark
+except when you explicitly delete one yourself in the panel.
 
 ## Changes and contact
 
