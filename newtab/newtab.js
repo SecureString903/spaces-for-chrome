@@ -175,7 +175,12 @@ async function resumeSpace(space) {
   try {
     const win = await chrome.windows.getCurrent();
     const tabs = await chrome.tabs.query({ currentWindow: true });
-    const others = tabs.filter((t) => !(t.url || t.pendingUrl || '').startsWith('chrome://newtab'));
+    // An overridden NTP reports the extension's own URL, not chrome://newtab.
+    const ntpUrls = ['chrome://newtab', chrome.runtime.getURL('newtab/newtab.html')];
+    const others = tabs.filter((t) => {
+      const u = t.url || t.pendingUrl || '';
+      return !ntpUrls.some((p) => u.startsWith(p));
+    });
     if (others.length &&
         !confirm(`Open “${space.name}” here?\n\nThe ${tabs.length} tabs in this window will be saved to Backups and replaced.`)) {
       return;
@@ -396,13 +401,27 @@ function setupIO() {
   });
 
   let space = null;
+  let winId = null;
   try {
     const win = await chrome.windows.getCurrent();
+    winId = win.id;
     const map = await getWinMap();
     const spaceId = map[win.id];
     if (spaceId) space = (await getSpaces()).find((s) => s.id === spaceId) ?? null;
   } catch { /* render spaceless */ }
   currentSpace = space;
+
+  // A switch creates this window's fresh new-tab page *before* it records
+  // the window→Space mapping, so a page spawned mid-switch can read the
+  // stale map and render as unmapped. Re-initialize when this window's
+  // mapping actually changes (also picks up the homepage redirect).
+  try {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'session' || !changes.winmap || winId == null) return;
+      const mappedId = changes.winmap.newValue?.[winId] ?? null;
+      if ((currentSpace?.id ?? null) !== mappedId) location.reload();
+    });
+  } catch { /* stale-chip worst case */ }
 
   // Homepage redirect — open the page with #edit to bypass (e.g. to edit
   // this Space's groups).
