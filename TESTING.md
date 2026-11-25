@@ -116,6 +116,11 @@ Panel section
 
 - [ ] New tab shows the start page with the current Space's chip; an
       unmapped window shows no chip but still works.
+- [ ] Resume: close a Space window's last tab, open a new window — the
+      start page offers "Resume \<that Space\>" first, other free Spaces
+      after it, and leaves out Spaces live in other windows. Clicking
+      resumes with the Space's saved tabs; in a window that has other
+      tabs it asks for confirmation first.
 - [ ] ✎ Edit: add a group (choosing per-Space vs all-Spaces), add links,
       delete a link and a group; changes survive a new tab.
 - [ ] A per-Space group only appears in its Space; an all-Spaces group

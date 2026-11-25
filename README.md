@@ -40,7 +40,9 @@ place — one clean window per context.
   the current Space, and editable link groups (per Space, or shared
   across all Spaces) with JSON import/export. A Space with a homepage
   URL sends every new tab straight there (open the page with `#edit` to
-  bypass). Optional, off-by-default extras: weather (open-meteo, your
+  bypass). In a window that isn't in a Space, the page offers a one-click
+  **Resume** of the last-used Space (and the rest) instead of a blank
+  chip. Optional, off-by-default extras: weather (open-meteo, your
   coordinates only) and reachability dots for groups you mark internal.
 - **Keyboard shortcuts** — `Ctrl+Shift+.` / `Ctrl+Shift+,` cycle Spaces
   (customizable at `chrome://extensions/shortcuts`).

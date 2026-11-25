@@ -145,6 +145,10 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 chrome.windows.onRemoved.addListener(async (windowId) => {
   await state.updateWinMap((map) => {
+    // Closing a window that was in a Space (e.g. by closing its last tab)
+    // makes that Space the "last used" one, so the next fresh window's
+    // start page can offer to resume it.
+    if (map[windowId]) state.setLastSpaceId(map[windowId]);
     delete map[windowId];
     return map;
   });
@@ -242,6 +246,7 @@ async function handleMessage(msg) {
           return m;
         });
         await state.setSpaceTabs(id, await state.captureWindow(msg.fromWindowId));
+        state.setLastSpaceId(id);
       }
       return { ok: true, id };
     }

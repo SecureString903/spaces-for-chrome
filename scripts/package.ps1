@@ -11,7 +11,7 @@ if (Test-Path $staging) { Remove-Item -Recurse -Force $staging }
 New-Item -ItemType Directory -Force $staging | Out-Null
 
 Copy-Item (Join-Path $root "manifest.json") $staging
-foreach ($dir in "background", "sidepanel", "options", "onboarding", "shared", "icons") {
+foreach ($dir in "background", "sidepanel", "options", "onboarding", "shared", "icons", "newtab") {
     Copy-Item (Join-Path $root $dir) $staging -Recurse
 }
 # page.css is shared by options/onboarding; sidepanel css is self-contained.

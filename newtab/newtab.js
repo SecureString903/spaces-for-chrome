@@ -3,7 +3,7 @@
 // otherwise renders per-Space link groups. Zero network by default —
 // weather and reachability checks only run when enabled in Options.
 
-import { getWinMap, getSpaces, getSettings, getIcons } from '../background/state.js';
+import { getWinMap, getSpaces, getSettings, getIcons, getLastSpaceId } from '../background/state.js';
 
 const K_LINKS = 'linkGroups'; // { '*': Group[], [spaceId]: Group[] }
 const ACCENTS = ['#89b4fa', '#a6e3a1', '#cba6f7', '#fab387', '#94e2d5', '#f9e2af', '#f38ba8'];
@@ -137,6 +137,55 @@ function renderChip(space, icons) {
     chip.appendChild(document.createElement('i'));
   }
   chip.appendChild(document.createTextNode(space.name));
+}
+
+// ---------- resume (unmapped window) ----------
+
+// A window that isn't in any Space gets a one-click way back in: the last
+// used Space leads as "Resume …", the rest follow as plain pills. Spaces
+// live in other windows are left out (clicking would only focus elsewhere).
+async function renderResume() {
+  const box = $('#resume');
+  const row = box.querySelector('.resume-row');
+  const [spaces, map, icons, lastId] = await Promise.all([
+    getSpaces(), getWinMap(), getIcons(), getLastSpaceId()
+  ]);
+  const live = new Set(Object.values(map));
+  const candidates = spaces.filter((s) => !live.has(s.id));
+  if (!candidates.length) return;
+  candidates.sort((a, b) => (b.id === lastId) - (a.id === lastId));
+
+  for (const space of candidates) {
+    const primary = space.id === lastId;
+    const btn = el('button', { class: 'resume-btn' + (primary ? ' primary' : ''), title: `Open “${space.name}” in this window` });
+    btn.style.setProperty('--space-accent', space.color || '#89b4fa');
+    const iconData = icons[space.id];
+    if (iconData) btn.appendChild(el('img', { src: iconData, alt: '' }));
+    else if (space.emoji) btn.append(space.emoji + ' ');
+    else btn.appendChild(el('i'));
+    btn.append((primary ? 'Resume ' : '') + space.name);
+    btn.addEventListener('click', () => resumeSpace(space));
+    row.appendChild(btn);
+  }
+  box.hidden = false;
+}
+
+async function resumeSpace(space) {
+  const hint = $('#resume .resume-hint');
+  try {
+    const win = await chrome.windows.getCurrent();
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    const others = tabs.filter((t) => !(t.url || t.pendingUrl || '').startsWith('chrome://newtab'));
+    if (others.length &&
+        !confirm(`Open “${space.name}” here?\n\nThe ${tabs.length} tabs in this window will be saved to Backups and replaced.`)) {
+      return;
+    }
+    const res = await chrome.runtime.sendMessage({ type: 'switchSpace', windowId: win.id, spaceId: space.id });
+    // On success this tab is closed by the switch; nothing left to do.
+    if (!res?.ok) hint.textContent = res?.error || 'Could not open that Space.';
+  } catch (e) {
+    hint.textContent = 'Could not open that Space: ' + (e?.message ?? e);
+  }
 }
 
 // ---------- render ----------
@@ -363,6 +412,7 @@ function setupIO() {
   }
 
   renderChip(space, space ? await getIcons() : {});
+  if (!space) renderResume().catch(() => {});
   initWeather();
   setupIO();
   $('#edit-btn').addEventListener('click', () => {

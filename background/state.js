@@ -67,6 +67,21 @@ export async function setSpaces(spaces) {
   await chrome.storage.local.set({ [K_SPACES]: spaces });
 }
 
+// The most recently active Space: set on every switch and when a window
+// closes while in a Space. Lives in local storage so it survives browser
+// restarts — the start page uses it to offer a one-click resume in
+// windows that aren't in any Space.
+const K_LAST_SPACE = 'lastSpaceId';
+
+export async function getLastSpaceId() {
+  const { [K_LAST_SPACE]: id = null } = await chrome.storage.local.get(K_LAST_SPACE);
+  return id;
+}
+
+export function setLastSpaceId(spaceId) {
+  return chrome.storage.local.set({ [K_LAST_SPACE]: spaceId }).catch(() => {});
+}
+
 export async function getWinMap() {
   const { [K_WINMAP]: winmap = {} } = await chrome.storage.session.get(K_WINMAP);
   return winmap;

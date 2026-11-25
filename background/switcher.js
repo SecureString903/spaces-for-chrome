@@ -18,7 +18,8 @@ import {
   setSpaceTabs,
   captureWindow,
   pushBackup,
-  getSettings
+  getSettings,
+  setLastSpaceId
 } from './state.js';
 import { switching, snapshotNow } from './tracker.js';
 import { swapBars } from './bookmarks.js';
@@ -109,6 +110,7 @@ export async function switchSpace(windowId, targetSpaceId) {
       m[windowId] = targetSpaceId;
       return m;
     });
+    setLastSpaceId(targetSpaceId);
 
     // Bring this Space's bookmarks onto the bar. Deliberately not awaited:
     // the bookmark queue can back up (focus-follow mode) and must not hold
