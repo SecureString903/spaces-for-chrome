@@ -205,6 +205,12 @@ chrome.commands.onCommand.addListener((command) => {
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // closeSidePanel is answered by the open side panel page itself
+  // (closed:true). Answering here too would race that reply — and when
+  // this one wins, the start page's stale-state fallback reopens the
+  // panel it just closed. Stay silent: no reply at all tells the start
+  // page nothing was open.
+  if (msg?.type === 'closeSidePanel') return;
   handleMessage(msg)
     .then(sendResponse)
     .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
@@ -421,12 +427,6 @@ async function handleMessage(msg) {
       const windowId = await openTabsInNewWindow(backup.tabs, backup.groups ?? {});
       return windowId != null ? { ok: true } : { ok: false, error: 'Could not open a window.' };
     }
-
-    case 'closeSidePanel':
-      // The open panel answers this itself (synchronously) and wins the
-      // response race; this reply only reaches the start page when no
-      // panel is listening, telling it its open-state was stale.
-      return { ok: true, closed: false };
 
     case 'deleteBackup': {
       await state.removeBackup(msg.at);
