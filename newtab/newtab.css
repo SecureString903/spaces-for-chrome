@@ -18,6 +18,9 @@
   --blob1: #89b4fa;
   --blob2: #cba6f7;
   --blob3: #94e2d5;
+  /* Text that sits directly on the page background (header, footer) —
+     solid/photo modes override these for contrast against any backdrop. */
+  --page-muted: var(--muted);
 }
 
 html[data-theme="light"] {
@@ -36,7 +39,34 @@ html[data-theme="light"] {
   --dot-ring: #e6e9ef;
   --panel-bg: #e6e9ef;
   --vignette: rgba(239, 241, 245, 0.55);
-  --scrim: linear-gradient(rgba(239, 241, 245, 0.45), rgba(239, 241, 245, 0.65));
+  --scrim: linear-gradient(rgba(239, 241, 245, 0.8), rgba(239, 241, 245, 0.55) 35%, rgba(239, 241, 245, 0.85));
+}
+
+/* A solid color can be any hue, so the text on the bare page ignores the
+   theme and contrasts with the color itself (data-on set from luminance). */
+html[data-bg="solid"][data-on="light"] {
+  --page-muted: #c6cce6;
+  --page-text: #eceffb;
+  --clock-from: #fff;
+  --clock-to: #c9d2ff;
+}
+html[data-bg="solid"][data-on="dark"] {
+  --page-muted: #3c3f55;
+  --page-text: #23263a;
+  --clock-from: #23263a;
+  --clock-to: #4a4f75;
+}
+
+/* Over a photo, text sitting on the image gets a halo in the scrim's color. */
+html[data-bg="photo"] {
+  --page-shadow: 0 1px 10px rgba(0, 0, 0, 0.85), 0 0 3px rgba(0, 0, 0, 0.9);
+  --clock-filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.6));
+  --scrim: linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.35) 35%, rgba(0, 0, 0, 0.7));
+}
+html[data-theme="light"][data-bg="photo"] {
+  --page-shadow: 0 1px 10px rgba(255, 255, 255, 0.95), 0 0 4px rgba(255, 255, 255, 1);
+  --clock-filter: drop-shadow(0 2px 12px rgba(255, 255, 255, 0.9));
+  --scrim: linear-gradient(rgba(239, 241, 245, 0.8), rgba(239, 241, 245, 0.55) 35%, rgba(239, 241, 245, 0.85));
 }
 
 * { box-sizing: border-box; }
@@ -71,7 +101,7 @@ html[data-bg="photo"] .bg::after { background: var(--scrim); }
 
 /* header */
 header { text-align: center; width: 100%; max-width: 820px; margin-bottom: 36px; animation: rise 0.6s ease both; }
-#greeting { font-size: 1.15rem; color: var(--muted); letter-spacing: 0.5px; }
+#greeting { font-size: 1.15rem; color: var(--page-muted); letter-spacing: 0.5px; text-shadow: var(--page-shadow, none); }
 #greeting:empty { display: none; }
 
 #space-chip {
@@ -85,7 +115,7 @@ header { text-align: center; width: 100%; max-width: 820px; margin-bottom: 36px;
 #space-chip i { width: 10px; height: 10px; border-radius: 3px; background: var(--space-accent, #89b4fa); }
 
 #resume { margin-top: 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.resume-hint { font-size: 0.78rem; color: var(--muted); letter-spacing: 0.4px; }
+.resume-hint { font-size: 0.78rem; color: var(--page-muted); letter-spacing: 0.4px; text-shadow: var(--page-shadow, none); }
 .resume-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .resume-btn {
   display: inline-flex; align-items: center; gap: 7px;
@@ -106,8 +136,9 @@ header { text-align: center; width: 100%; max-width: 820px; margin-bottom: 36px;
   font-size: 5.5rem; font-weight: 200; line-height: 1.05; letter-spacing: -2px; margin: 4px 0;
   background: linear-gradient(180deg, var(--clock-from), var(--clock-to));
   -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: var(--clock-filter, none);
 }
-.sub { display: flex; justify-content: center; gap: 14px; color: var(--muted); margin-bottom: 28px; font-size: 0.98rem; }
+.sub { display: flex; justify-content: center; gap: 14px; color: var(--page-muted); margin-bottom: 28px; font-size: 0.98rem; text-shadow: var(--page-shadow, none); }
 #weather:not(:empty)::before { content: "•"; margin-right: 14px; opacity: 0.5; }
 
 #search { position: relative; }
@@ -165,14 +196,17 @@ section h2 .scope { margin-left: auto; color: var(--unk); font-weight: 400; lett
 .empty { color: var(--muted); font-size: 0.85rem; padding: 8px; }
 
 /* footer & edit mode */
-footer { margin-top: 28px; color: var(--unk); font-size: 0.8rem; min-height: 1em; display: flex; gap: 18px; align-items: center; }
+footer { margin-top: 28px; color: var(--page-muted); font-size: 0.8rem; min-height: 1em; display: flex; gap: 18px; align-items: center; text-shadow: var(--page-shadow, none); }
 .foot-btn {
-  background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--unk);
+  /* Sits on its own glass, so it keeps theme colors (not the page-contrast
+     ones) and needs no halo. */
+  background: var(--glass); border: 1px solid var(--border); border-radius: 8px; color: var(--muted);
   font: inherit; font-size: 0.8rem; padding: 4px 12px; cursor: pointer; transition: color 0.15s, border-color 0.15s;
+  text-shadow: none;
 }
 .foot-btn:hover { color: var(--text); border-color: var(--muted); }
 .foot-actions { display: flex; gap: 8px; }
-body:not(.editing) .foot-btn#edit-btn { opacity: 0.55; }
+body:not(.editing) .foot-btn#edit-btn { opacity: 0.8; }
 
 body.editing section { border-style: dashed; }
 .g-controls { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }

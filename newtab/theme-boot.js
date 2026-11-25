@@ -9,4 +9,5 @@ try {
   if (look && look.b === 'solid' && look.c) {
     document.documentElement.style.setProperty('--page-bg', look.c);
   }
+  if (look && look.o) document.documentElement.dataset.on = look.o;
 } catch (e) { /* first load: default dark glass */ }

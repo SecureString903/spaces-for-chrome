@@ -85,6 +85,21 @@ function scopeLabel(g) {
 // too big for storage.sync, so Options keeps it in storage.local (per
 // device). The resolved look is mirrored to localStorage for theme-boot.js,
 // which restyles the next load before first paint.
+
+// A solid background can be any hue, so text on the bare page can't trust
+// the theme palette — pick light or dark page text from the color itself.
+function colorIsDark(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return true;
+  const n = parseInt(m[1], 16);
+  const lin = (v) => {
+    v /= 255;
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  const lum = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  return lum < 0.4;
+}
+
 function applyLook() {
   const theme = settings?.ntTheme === 'light' || settings?.ntTheme === 'auto' ? settings.ntTheme : 'dark';
   const resolved =
@@ -94,8 +109,13 @@ function applyLook() {
   const root = document.documentElement;
   root.dataset.theme = resolved;
   root.dataset.bg = bg;
-  if (bg === 'solid' && settings?.ntColor) root.style.setProperty('--page-bg', settings.ntColor);
-  else root.style.removeProperty('--page-bg');
+  if (bg === 'solid' && settings?.ntColor) {
+    root.style.setProperty('--page-bg', settings.ntColor);
+    root.dataset.on = colorIsDark(settings.ntColor) ? 'light' : 'dark';
+  } else {
+    root.style.removeProperty('--page-bg');
+    delete root.dataset.on;
+  }
   if (bg === 'photo') {
     chrome.storage.local.get('ntPhoto').then(({ ntPhoto }) => {
       const img = $('#bg-photo');
@@ -106,7 +126,9 @@ function applyLook() {
     }).catch(() => { /* plain background */ });
   }
   try {
-    localStorage.setItem('ntLook', JSON.stringify({ t: resolved, b: bg, c: settings?.ntColor ?? null }));
+    localStorage.setItem('ntLook', JSON.stringify({
+      t: resolved, b: bg, c: settings?.ntColor ?? null, o: root.dataset.on ?? null
+    }));
   } catch { /* mirror only */ }
 }
 
