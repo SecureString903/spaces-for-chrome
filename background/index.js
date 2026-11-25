@@ -420,6 +420,12 @@ async function handleMessage(msg) {
       return windowId != null ? { ok: true } : { ok: false, error: 'Could not open a window.' };
     }
 
+    case 'closeSidePanel':
+      // The open panel answers this itself (synchronously) and wins the
+      // response race; this reply only reaches the start page when no
+      // panel is listening, telling it its open-state was stale.
+      return { ok: true, closed: false };
+
     case 'deleteBackup': {
       await state.removeBackup(msg.at);
       return { ok: true };

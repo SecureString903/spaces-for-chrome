@@ -1009,9 +1009,32 @@ function initListeners() {
   chrome.tabs.onActivated.addListener((info) => ifThisWindow(info.windowId));
 }
 
+// Chrome has no sidePanel.close() API, so the start page's ☰ button
+// toggles by asking this page to close itself. The open/closed state is
+// tracked per window in session storage (cleared on pagehide so the
+// user closing the panel with Chrome's own ✕ is recorded too).
+async function markPanelOpen(open) {
+  try {
+    const { openPanels = {} } = await chrome.storage.session.get('openPanels');
+    if (open) openPanels[windowId] = true;
+    else delete openPanels[windowId];
+    await chrome.storage.session.set({ openPanels });
+  } catch { /* toggle degrades to open-only */ }
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.type === 'closeSidePanel' && msg.windowId === windowId) {
+    sendResponse({ closed: true });
+    markPanelOpen(false);
+    window.close();
+  }
+});
+
 async function main() {
   const win = await chrome.windows.getCurrent();
   windowId = win.id;
+  markPanelOpen(true);
+  window.addEventListener('pagehide', () => markPanelOpen(false));
   initListeners();
   await refreshAndRender();
 }
