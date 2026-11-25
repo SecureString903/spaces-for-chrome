@@ -32,7 +32,7 @@ html[data-theme="light"] {
   --muted: #6c6f85;
   --up: #40a02b;
   --down: #d20f39;
-  --unk: #8c8fa1;
+  --unk: #767a90;
   --chip-bg: rgba(255, 255, 255, 0.55);
   --clock-from: #4c4f69;
   --clock-to: #7287fd;
@@ -64,9 +64,10 @@ html[data-bg="photo"] {
   --scrim: linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.35) 35%, rgba(0, 0, 0, 0.7));
 }
 html[data-theme="light"][data-bg="photo"] {
-  --page-shadow: 0 1px 10px rgba(255, 255, 255, 0.95), 0 0 4px rgba(255, 255, 255, 1);
-  --clock-filter: drop-shadow(0 2px 12px rgba(255, 255, 255, 0.9));
-  --scrim: linear-gradient(rgba(239, 241, 245, 0.8), rgba(239, 241, 245, 0.55) 35%, rgba(239, 241, 245, 0.85));
+  --page-muted: #3a3d50;
+  --page-shadow: 0 1px 12px rgba(255, 255, 255, 1), 0 0 5px rgba(255, 255, 255, 1);
+  --clock-filter: drop-shadow(0 2px 14px rgba(255, 255, 255, 1));
+  --scrim: linear-gradient(rgba(239, 241, 245, 0.88), rgba(239, 241, 245, 0.62) 35%, rgba(239, 241, 245, 0.92));
 }
 
 * { box-sizing: border-box; }
@@ -165,6 +166,8 @@ section {
 }
 section::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent), transparent); }
 section h2 { margin: 0 0 14px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 2px; color: var(--accent); font-weight: 600; display: flex; align-items: center; gap: 8px; }
+/* Pastel accents vanish on light cards — ink the heading with the hue instead. */
+html[data-theme="light"] section h2 { color: color-mix(in srgb, var(--accent) 45%, #2f3345); }
 section h2 .count { color: var(--unk); font-weight: 400; letter-spacing: 0; }
 section h2 .scope { margin-left: auto; color: var(--unk); font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 0.72rem; }
 
