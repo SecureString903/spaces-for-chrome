@@ -121,6 +121,11 @@ export async function getBarNodeId() {
   return bar?.id ?? null;
 }
 
+export async function getBarOwnerId() {
+  const { [K_BAR_OWNER]: id } = await chrome.storage.local.get(K_BAR_OWNER);
+  return id ?? null;
+}
+
 export async function getBarFolderId() {
   const { [K_BAR_FOLDER]: id } = await chrome.storage.local.get(K_BAR_FOLDER);
   return id ?? null;

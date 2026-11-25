@@ -15,9 +15,25 @@ import {
   loadFolderToBar,
   getBarFolderId,
   getBarNodeId,
+  getBarOwnerId,
   linkSpaceFolder,
   stashBarIfOwnedBy
 } from './bookmarks.js';
+
+// If the Space that owns the bookmarks bar is not live in any window, its
+// bookmarks go back to its folder — windows outside any Space get an empty
+// bar. Safe to call often: it no-ops while the owner is on screen, and a
+// queued swap to a live Space supersedes the stash.
+async function reconcileBarOwner() {
+  try {
+    const ownerId = await getBarOwnerId();
+    if (!ownerId) return;
+    const live = new Set(Object.values(await state.getWinMap()));
+    if (!live.has(ownerId)) stashBarIfOwnedBy(ownerId);
+  } catch (e) {
+    console.warn('Spaces: bar reconcile failed', e);
+  }
+}
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 initTracker();
@@ -119,11 +135,13 @@ async function reassociateWindows() {
   }
 }
 
-chrome.runtime.onStartup.addListener(reassociateWindows);
+chrome.runtime.onStartup.addListener(() => reassociateWindows().then(reconcileBarOwner));
 // Also run on every service-worker cold start: covers extension
 // reload/update, where onStartup never fires but the session map is gone.
-// The empty-map guard makes routine worker wake-ups a no-op.
-reassociateWindows();
+// The empty-map guard makes routine worker wake-ups a no-op. The bar
+// reconcile runs after re-association so a freshly re-attached Space
+// counts as live before the bar is judged ownerless.
+reassociateWindows().then(reconcileBarOwner);
 
 // Optional "follow focus" bookmark mode: when the user focuses a window in
 // a different Space, bring that Space's bookmarks onto the bar.
@@ -173,12 +191,10 @@ chrome.windows.onRemoved.addListener(async (windowId) => {
     delete map[windowId];
     return map;
   });
-  // If that Space is no longer live anywhere, put its bookmarks back in
-  // its folder — windows outside any Space show an empty bar.
-  if (closedSpaceId) {
-    const map = await state.getWinMap();
-    if (!Object.values(map).includes(closedSpaceId)) stashBarIfOwnedBy(closedSpaceId);
-  }
+  // Whatever closed (even an unmapped window after an extension reload
+  // left stale ownership behind), check whether the bar's owner Space is
+  // still on screen — if not, its bookmarks return to its folder.
+  reconcileBarOwner();
 });
 
 chrome.commands.onCommand.addListener((command) => {
