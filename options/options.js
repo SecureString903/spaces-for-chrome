@@ -5,7 +5,10 @@ const DEFAULTS = {
   chipStyle: 'name',
   greetingName: '',
   weatherCoords: '',
-  statusChecks: false
+  statusChecks: false,
+  ntTheme: 'dark',
+  ntBackground: 'blobs',
+  ntColor: '#11111b'
 };
 
 let toastTimer = null;
@@ -38,6 +41,35 @@ async function load() {
   document.querySelector('#weatherCoords').value = s.weatherCoords;
   document.querySelector('#statusChecks').checked = s.statusChecks;
   checkRadio('chipStyle', s.chipStyle, DEFAULTS.chipStyle);
+  checkRadio('ntTheme', s.ntTheme, DEFAULTS.ntTheme);
+  checkRadio('ntBackground', s.ntBackground, DEFAULTS.ntBackground);
+  document.querySelector('#ntColor').value = /^#[0-9a-fA-F]{6}$/.test(s.ntColor) ? s.ntColor : DEFAULTS.ntColor;
+  refreshPhotoUI();
+}
+
+// ---------- start-page background photo ----------
+// Too large for storage.sync (100 KB quota), so it lives in storage.local,
+// per device, downscaled and recompressed so a phone photo doesn't eat the
+// 10 MB local quota.
+
+async function refreshPhotoUI() {
+  const { ntPhoto } = await chrome.storage.local.get('ntPhoto');
+  const img = document.querySelector('#photoPreview');
+  if (ntPhoto) img.src = ntPhoto;
+  else img.removeAttribute('src');
+  img.hidden = !ntPhoto;
+  document.querySelector('#photoClear').hidden = !ntPhoto;
+}
+
+async function downscalePhoto(file) {
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(1, 2560 / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(bmp.width * scale));
+  canvas.height = Math.max(1, Math.round(bmp.height * scale));
+  canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  bmp.close();
+  return canvas.toDataURL('image/jpeg', 0.85);
 }
 
 // The weather field takes "lat, lon" directly, or a place name that is
@@ -85,15 +117,45 @@ async function save() {
     chipStyle: document.querySelector('input[name="chipStyle"]:checked')?.value ?? 'name',
     greetingName: document.querySelector('#greetingName').value.trim(),
     weatherCoords: await resolveWeatherInput(),
-    statusChecks: document.querySelector('#statusChecks').checked
+    statusChecks: document.querySelector('#statusChecks').checked,
+    ntTheme: document.querySelector('input[name="ntTheme"]:checked')?.value ?? 'dark',
+    ntBackground: document.querySelector('input[name="ntBackground"]:checked')?.value ?? 'blobs',
+    ntColor: document.querySelector('#ntColor').value
   };
   await chrome.storage.sync.set({ settings });
   toast('Saved');
 }
 
-document.querySelectorAll('input').forEach((input) => input.addEventListener('change', save));
+document.querySelectorAll('input:not([type="file"])').forEach((input) => input.addEventListener('change', save));
 document.querySelector('#shortcuts-btn').addEventListener('click', () => {
   chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+});
+
+document.querySelector('#photoPick').addEventListener('click', () => {
+  document.querySelector('#photoFile').click();
+});
+document.querySelector('#photoFile').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const dataUrl = await downscalePhoto(file);
+    await chrome.storage.local.set({ ntPhoto: dataUrl });
+    document.querySelector('input[name="ntBackground"][value="photo"]').checked = true;
+    await save();
+    await refreshPhotoUI();
+  } catch {
+    toast('Could not use that image');
+  }
+});
+document.querySelector('#photoClear').addEventListener('click', async () => {
+  await chrome.storage.local.remove('ntPhoto');
+  const photoRadio = document.querySelector('input[name="ntBackground"][value="photo"]');
+  if (photoRadio.checked) {
+    document.querySelector('input[name="ntBackground"][value="blobs"]').checked = true;
+    await save();
+  }
+  refreshPhotoUI();
 });
 document.querySelector('#version').textContent = `Spaces v${chrome.runtime.getManifest().version}`;
 

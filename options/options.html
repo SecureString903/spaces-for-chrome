@@ -82,6 +82,61 @@
     </section>
 
     <section class="card">
+      <h2>Start page appearance</h2>
+      <p>Pick the start page's colors and background. Everything here stays in your browser.</p>
+      <p class="group-label">Theme</p>
+      <label class="radio-row">
+        <input type="radio" name="ntTheme" value="dark" />
+        <span>
+          <strong>Dark</strong>
+          <span class="hint">The classic dark glass palette.</span>
+        </span>
+      </label>
+      <label class="radio-row">
+        <input type="radio" name="ntTheme" value="light" />
+        <span>
+          <strong>Light</strong>
+          <span class="hint">The same look in a light palette.</span>
+        </span>
+      </label>
+      <label class="radio-row">
+        <input type="radio" name="ntTheme" value="auto" />
+        <span>
+          <strong>Match system</strong>
+          <span class="hint">Follows your operating system's light/dark setting.</span>
+        </span>
+      </label>
+      <p class="group-label">Background</p>
+      <label class="radio-row">
+        <input type="radio" name="ntBackground" value="blobs" />
+        <span>
+          <strong>Animated glass</strong>
+          <span class="hint">Softly drifting color blobs behind frosted cards.</span>
+        </span>
+      </label>
+      <label class="radio-row">
+        <input type="radio" name="ntBackground" value="solid" />
+        <span>
+          <strong>Solid color</strong>
+          <span class="hint">A single flat color of your choice: <input type="color" id="ntColor" /></span>
+        </span>
+      </label>
+      <label class="radio-row">
+        <input type="radio" name="ntBackground" value="photo" />
+        <span>
+          <strong>Your photo</strong>
+          <span class="hint">A picture you choose. It is stored only on this device — images are too large for Chrome's settings sync.</span>
+          <span class="photo-row">
+            <button id="photoPick" class="ghost-btn" type="button">Choose photo…</button>
+            <button id="photoClear" class="ghost-btn" type="button" hidden>Remove</button>
+            <img id="photoPreview" alt="" hidden />
+          </span>
+        </span>
+      </label>
+      <input type="file" id="photoFile" accept="image/*" hidden />
+    </section>
+
+    <section class="card">
       <h2>Start page</h2>
       <p>Spaces replaces the New Tab page with a Space-aware start page (clock, search, per-Space link groups, and each Space's homepage redirect). The extras below are optional — nothing leaves your browser unless you turn them on.</p>
       <label class="number-row">

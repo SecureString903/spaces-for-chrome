@@ -47,6 +47,41 @@
   font: inherit;
 }
 
+.group-label {
+  margin: 14px 0 2px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+}
+
+#ntColor {
+  width: 44px;
+  height: 24px;
+  padding: 0 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.photo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+#photoPreview {
+  height: 44px;
+  max-width: 120px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  object-fit: cover;
+}
+
 #version {
   font-size: 12px;
   text-align: center;

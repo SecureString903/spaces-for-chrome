@@ -21,6 +21,10 @@ entirely on your device:
   safety net.
 - **Bookmark folder mappings** — which hidden folder under
   *Other Bookmarks → Spaces* belongs to which Space.
+- **Start-page background photo** — if you choose one, the image is kept
+  in the extension's local storage on that device only. It is never
+  uploaded or transmitted anywhere, and it does not sync (images are too
+  large for Chrome's settings sync).
 
 Your **options-page preferences** (and nothing else) are saved with
 `chrome.storage.sync`, which means Chrome itself may sync them between

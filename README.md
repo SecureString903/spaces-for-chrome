@@ -49,8 +49,10 @@ place — one clean window per context.
   bypass). A window that isn't in a Space gets the generic page with a
   pill for **every Space** — the last-used one leads as "Resume" — so
   you can jump into a Space without opening the panel (a Space already
-  open elsewhere is focused instead). Optional, off-by-default extras:
-  weather (open-meteo, your
+  open elsewhere is focused instead). The look is yours too: dark, light,
+  or match-system theme, over animated glass blobs, a solid color, or a
+  photo you choose (kept on-device; see Options). Optional,
+  off-by-default extras: weather (open-meteo, your
   coordinates only) and reachability dots for groups you mark internal.
 - **Keyboard shortcuts** — `Ctrl+Shift+.` / `Ctrl+Shift+,` cycle Spaces
   (customizable at `chrome://extensions/shortcuts`).

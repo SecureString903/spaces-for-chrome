@@ -157,8 +157,18 @@ Panel section
 - [ ] With weather/status unset (defaults), the page makes zero network
       requests (DevTools Network tab stays empty apart from extension
       resources).
-- [ ] Opt-ins: weather coords show the forecast; "status dots" groups show
-      up/down with the footer summary when reachability is enabled.
+- [ ] Opt-ins: weather accepts a place name (resolved once to coordinates,
+      echoed in the hint) or "lat, lon" and shows the forecast; "status
+      dots" groups show up/down with the footer summary when reachability
+      is enabled.
+- [ ] Appearance: Options → Light theme restyles the start page (cards,
+      clock, dialog all readable); Match system follows the OS setting;
+      reopening a new tab shows no dark flash once a light look is saved.
+- [ ] Background: Solid color shows the picked flat color (no blobs);
+      Your photo shows the chosen image under a readable scrim, the
+      options page shows its thumbnail, and Remove falls back to
+      Animated glass. The photo stays after an extension reload and is
+      NOT expected to sync to other computers.
 
 ## 8. Backups
 

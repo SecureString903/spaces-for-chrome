@@ -24,7 +24,10 @@ export const DEFAULT_SETTINGS = {
   // by default, keeping the base extension zero-network.
   greetingName: '', // shown in the start-page greeting when set
   weatherCoords: '', // "lat, lon" — empty disables weather entirely
-  statusChecks: false // reachability dots for link groups marked internal
+  statusChecks: false, // reachability dots for link groups marked internal
+  ntTheme: 'dark', // 'dark' | 'light' | 'auto' (follow the OS)
+  ntBackground: 'blobs', // 'blobs' | 'solid' | 'photo' (photo in storage.local)
+  ntColor: '#11111b' // page color for the 'solid' background
 };
 
 export async function getSettings() {

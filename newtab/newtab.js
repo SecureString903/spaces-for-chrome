@@ -79,6 +79,37 @@ function scopeLabel(g) {
     .join(' · ');
 }
 
+// ---------- appearance ----------
+
+// Theme and background come from synced settings; an uploaded photo is far
+// too big for storage.sync, so Options keeps it in storage.local (per
+// device). The resolved look is mirrored to localStorage for theme-boot.js,
+// which restyles the next load before first paint.
+function applyLook() {
+  const theme = settings?.ntTheme === 'light' || settings?.ntTheme === 'auto' ? settings.ntTheme : 'dark';
+  const resolved =
+    theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : theme;
+  const bg = settings?.ntBackground === 'solid' || settings?.ntBackground === 'photo'
+    ? settings.ntBackground : 'blobs';
+  const root = document.documentElement;
+  root.dataset.theme = resolved;
+  root.dataset.bg = bg;
+  if (bg === 'solid' && settings?.ntColor) root.style.setProperty('--page-bg', settings.ntColor);
+  else root.style.removeProperty('--page-bg');
+  if (bg === 'photo') {
+    chrome.storage.local.get('ntPhoto').then(({ ntPhoto }) => {
+      const img = $('#bg-photo');
+      if (ntPhoto && img) {
+        img.src = ntPhoto;
+        img.hidden = false;
+      }
+    }).catch(() => { /* plain background */ });
+  }
+  try {
+    localStorage.setItem('ntLook', JSON.stringify({ t: resolved, b: bg, c: settings?.ntColor ?? null }));
+  } catch { /* mirror only */ }
+}
+
 // ---------- clock & greeting ----------
 
 function tick() {
@@ -505,6 +536,12 @@ function setupIO() {
 
 (async () => {
   settings = await getSettings();
+  applyLook();
+  try {
+    matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+      if (settings?.ntTheme === 'auto') applyLook();
+    });
+  } catch { /* fixed theme */ }
   tick();
   setInterval(tick, 1000);
 
