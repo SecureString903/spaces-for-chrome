@@ -15,7 +15,8 @@ import {
   loadFolderToBar,
   getBarFolderId,
   getBarNodeId,
-  linkSpaceFolder
+  linkSpaceFolder,
+  stashBarIfOwnedBy
 } from './bookmarks.js';
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
@@ -53,6 +54,9 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 // session storage) the window→Space map is empty. Re-associate windows to
 // Spaces by comparing their tab URLs to each Space's saved snapshot
 // (greedy best-match, one window per Space).
+const NTP_PREFIXES = ['chrome://newtab', chrome.runtime.getURL('newtab/newtab.html')];
+const isNtpUrl = (u) => NTP_PREFIXES.some((p) => u.startsWith(p));
+
 async function reassociateWindows() {
   try {
     const existing = await state.getWinMap();
@@ -61,12 +65,19 @@ async function reassociateWindows() {
     const spaces = await state.getSpaces();
     const candidates = [];
     for (const win of windows) {
-      const urls = new Set(win.tabs.map((t) => t.url || t.pendingUrl).filter(Boolean));
+      // New-tab pages carry no identity: a fresh blank window must never
+      // "match" a Space whose snapshot is just a new tab — it stays
+      // unmapped and the start page offers the Spaces instead.
+      const urls = new Set(
+        win.tabs.map((t) => t.url || t.pendingUrl).filter((u) => u && !isNtpUrl(u))
+      );
+      if (!urls.size) continue;
       for (const space of spaces) {
         const saved = await state.getSpaceTabs(space.id);
-        if (!saved.tabs.length) continue;
-        const overlap = saved.tabs.filter((t) => urls.has(t.url)).length;
-        const score = overlap / Math.max(urls.size, saved.tabs.length);
+        const savedUrls = saved.tabs.map((t) => t.url).filter((u) => u && !isNtpUrl(u));
+        if (!savedUrls.length) continue;
+        const overlap = savedUrls.filter((u) => urls.has(u)).length;
+        const score = overlap / Math.max(urls.size, savedUrls.length);
         // A restart-restored window matches its Space at ~1.0; a lower bar
         // adopts unrelated windows whose tabs then overwrite the Space.
         if (score >= 0.8) candidates.push({ score, windowId: win.id, spaceId: space.id });
@@ -97,6 +108,12 @@ async function reassociateWindows() {
     await state.updateWinMap((current) =>
       Object.keys(current).length ? current : map
     );
+    // The bar may have been stashed when the last Space window closed
+    // before shutdown — bring the focused window's Space back onto it.
+    if (Object.keys(map).length) {
+      const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'] }).catch(() => null);
+      if (win && map[win.id]) swapBars(null, map[win.id]);
+    }
   } catch (e) {
     console.warn('Spaces: window re-association failed', e);
   }
@@ -144,14 +161,24 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 chrome.windows.onRemoved.addListener(async (windowId) => {
+  let closedSpaceId = null;
   await state.updateWinMap((map) => {
     // Closing a window that was in a Space (e.g. by closing its last tab)
     // makes that Space the "last used" one, so the next fresh window's
     // start page can offer to resume it.
-    if (map[windowId]) state.setLastSpaceId(map[windowId]);
+    if (map[windowId]) {
+      closedSpaceId = map[windowId];
+      state.setLastSpaceId(closedSpaceId);
+    }
     delete map[windowId];
     return map;
   });
+  // If that Space is no longer live anywhere, put its bookmarks back in
+  // its folder — windows outside any Space show an empty bar.
+  if (closedSpaceId) {
+    const map = await state.getWinMap();
+    if (!Object.values(map).includes(closedSpaceId)) stashBarIfOwnedBy(closedSpaceId);
+  }
 });
 
 chrome.commands.onCommand.addListener((command) => {

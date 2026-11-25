@@ -56,6 +56,8 @@ export async function switchSpace(windowId, targetSpaceId) {
   if (!target) return { ok: false, error: 'Space not found.' };
 
   switching.add(windowId);
+  let mapSet = false;
+  let succeeded = false;
   try {
     const oldTabs = await chrome.tabs.query({ windowId });
     const oldIds = oldTabs.map((t) => t.id).filter((id) => id != null);
@@ -70,6 +72,17 @@ export async function switchSpace(windowId, targetSpaceId) {
     } else {
       await pushBackup('Window tabs replaced by a Space switch', outgoing);
     }
+
+    // Record the mapping BEFORE creating any tabs: the incoming tabs are
+    // created next, and a start page among them reads the map as it loads
+    // — writing the map afterwards left those pages rendering "not in a
+    // Space". The tracker ignores this window while `switching` holds it,
+    // and the finally block reverts the map if the switch fails.
+    await updateWinMap((m) => {
+      m[windowId] = targetSpaceId;
+      return m;
+    });
+    mapSet = true;
 
     // 2. Create the incoming tabs. `aligned[i]` stays index-aligned with
     // `list[i]` (null on failure) so group membership can't be scrambled
@@ -106,10 +119,7 @@ export async function switchSpace(windowId, targetSpaceId) {
       }
     }
 
-    await updateWinMap((m) => {
-      m[windowId] = targetSpaceId;
-      return m;
-    });
+    succeeded = true;
     setLastSpaceId(targetSpaceId);
 
     // Bring this Space's bookmarks onto the bar. Deliberately not awaited:
@@ -118,6 +128,13 @@ export async function switchSpace(windowId, targetSpaceId) {
     swapBars(currentSpaceId ?? null, targetSpaceId);
     return { ok: true };
   } finally {
+    if (mapSet && !succeeded) {
+      await updateWinMap((m) => {
+        if (currentSpaceId) m[windowId] = currentSpaceId;
+        else delete m[windowId];
+        return m;
+      });
+    }
     switching.delete(windowId);
     // Let tab churn settle, then record the fresh state.
     setTimeout(() => snapshotNow(windowId), 800);

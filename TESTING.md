@@ -92,6 +92,13 @@ Mode: **Only for pinned Spaces**
       switching to an unpinned Space leaves the bar exactly as it was.
 - [ ] Pinning a folder while in that Space applies to the bar immediately.
 
+Any managed mode
+- [ ] Closing the last window of the Space that owns the bar empties the
+      bar (bookmarks return to the Space's folder); a new window then
+      shows no Space bookmarks. Resuming the Space brings them back.
+- [ ] Restart with "continue where you left off": once windows re-attach,
+      the focused window's Space bookmarks return to the bar.
+
 Mode: **Don't manage bookmarks**
 - [ ] Switching Spaces leaves the bar untouched.
 - [ ] Turning management back on and switching re-anchors cleanly (bar
@@ -117,10 +124,16 @@ Panel section
 - [ ] New tab shows the start page with the current Space's chip; an
       unmapped window shows no chip but still works.
 - [ ] Resume: close a Space window's last tab, open a new window — the
-      start page offers "Resume \<that Space\>" first, other free Spaces
-      after it, and leaves out Spaces live in other windows. Clicking
-      resumes with the Space's saved tabs; in a window that has other
-      tabs it asks for confirmation first.
+      start page offers "Resume \<that Space\>" first and a pill for every
+      other Space. Clicking a free Space resumes it with its saved tabs
+      (the page re-renders with its chip, or its homepage loads); clicking
+      a Space live in another window focuses that window. In a window with
+      non-new-tab tabs, resuming asks for confirmation first.
+- [ ] **[R]** After switching Spaces via the panel, the new window's start
+      page shows the Space's chip — never "This window isn't in a Space".
+- [ ] **[R]** A fresh blank window is never silently adopted into a Space
+      whose snapshot is just a new tab (reload the extension with such a
+      window open: it stays unmapped).
 - [ ] ✎ Edit: add a group (choosing per-Space vs all-Spaces), add links,
       delete a link and a group; changes survive a new tab.
 - [ ] A per-Space group only appears in its Space; an all-Spaces group

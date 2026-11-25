@@ -141,9 +141,9 @@ function renderChip(space, icons) {
 
 // ---------- resume (unmapped window) ----------
 
-// A window that isn't in any Space gets a one-click way back in: the last
-// used Space leads as "Resume …", the rest follow as plain pills. Spaces
-// live in other windows are left out (clicking would only focus elsewhere).
+// A window that isn't in any Space gets a one-click way into every Space:
+// the last used one leads as "Resume …", the rest follow as plain pills.
+// A Space that's live in another window focuses that window instead.
 async function renderResume() {
   const box = $('#resume');
   const row = box.querySelector('.resume-row');
@@ -151,13 +151,17 @@ async function renderResume() {
     getSpaces(), getWinMap(), getIcons(), getLastSpaceId()
   ]);
   const live = new Set(Object.values(map));
-  const candidates = spaces.filter((s) => !live.has(s.id));
-  if (!candidates.length) return;
-  candidates.sort((a, b) => (b.id === lastId) - (a.id === lastId));
+  if (!spaces.length) return;
+  const candidates = [...spaces].sort((a, b) => (b.id === lastId) - (a.id === lastId));
 
   for (const space of candidates) {
-    const primary = space.id === lastId;
-    const btn = el('button', { class: 'resume-btn' + (primary ? ' primary' : ''), title: `Open “${space.name}” in this window` });
+    const primary = space.id === lastId && !live.has(space.id);
+    const btn = el('button', {
+      class: 'resume-btn' + (primary ? ' primary' : ''),
+      title: live.has(space.id)
+        ? `“${space.name}” is open in another window — click to focus it`
+        : `Open “${space.name}” in this window`
+    });
     btn.style.setProperty('--space-accent', space.color || '#89b4fa');
     const iconData = icons[space.id];
     if (iconData) btn.appendChild(el('img', { src: iconData, alt: '' }));
@@ -411,17 +415,32 @@ function setupIO() {
   } catch { /* render spaceless */ }
   currentSpace = space;
 
-  // A switch creates this window's fresh new-tab page *before* it records
-  // the window→Space mapping, so a page spawned mid-switch can read the
-  // stale map and render as unmapped. Re-initialize when this window's
-  // mapping actually changes (also picks up the homepage redirect).
+  // The mapping can change after this page read it (a switch in flight,
+  // startup re-association, Chrome pre-rendering this page early). When
+  // this window's mapping no longer matches what we rendered, re-init —
+  // that also applies the homepage redirect. Checked on storage events,
+  // whenever the page becomes visible, and twice shortly after load.
+  const recheckMapping = async () => {
+    if (editing || winId == null) return;
+    try {
+      const map = await getWinMap();
+      const mappedId = map[winId] ?? null;
+      if ((currentSpace?.id ?? null) !== mappedId) location.reload();
+    } catch { /* stale-chip worst case */ }
+  };
   try {
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== 'session' || !changes.winmap || winId == null) return;
-      const mappedId = changes.winmap.newValue?.[winId] ?? null;
-      if ((currentSpace?.id ?? null) !== mappedId) location.reload();
+      if (area === 'session' && changes.winmap) recheckMapping();
     });
-  } catch { /* stale-chip worst case */ }
+  } catch { /* fall back to the polls below */ }
+  setTimeout(recheckMapping, 700);
+  setTimeout(recheckMapping, 2500);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) recheckMapping();
+  });
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) recheckMapping();
+  });
 
   // Homepage redirect — open the page with #edit to bypass (e.g. to edit
   // this Space's groups).

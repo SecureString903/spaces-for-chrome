@@ -146,9 +146,13 @@ export async function captureWindow(windowId, prev = null) {
     }
   }
 
+  const ntpUrl = chrome.runtime.getURL('newtab/newtab.html');
   return {
     tabs: tabs.map((t) => {
-      const url = t.url || t.pendingUrl || 'chrome://newtab/';
+      let url = t.url || t.pendingUrl || 'chrome://newtab/';
+      // Store the overridden NTP as the plain new-tab URL so restores get
+      // a clean omnibox and snapshots stay stable across extension ids.
+      if (url.startsWith(ntpUrl)) url = 'chrome://newtab/';
       const remembered = t.discarded ? prevByUrl.get(url) : null;
       return {
         url,

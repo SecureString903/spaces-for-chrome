@@ -25,7 +25,9 @@ place — one clean window per context.
   their place. Bookmarks are only ever moved, never deleted; deleting a
   Space leaves its folder behind as an archive. Note: Chrome has a single
   bar shared by all windows, so the bar tracks the most recently
-  switched-to Space.
+  switched-to Space — and when the last window showing the bar's Space
+  closes, its bookmarks return to their folder, leaving windows outside
+  any Space with an empty bar.
 - **Bookmarks in the side panel** — a Bookmarks section shows any folder
   under *Other Bookmarks → Spaces*: pick a folder on the fly, drill into
   subfolders, click to open (Ctrl+click for a background tab), and ★ to
@@ -40,9 +42,11 @@ place — one clean window per context.
   the current Space, and editable link groups (per Space, or shared
   across all Spaces) with JSON import/export. A Space with a homepage
   URL sends every new tab straight there (open the page with `#edit` to
-  bypass). In a window that isn't in a Space, the page offers a one-click
-  **Resume** of the last-used Space (and the rest) instead of a blank
-  chip. Optional, off-by-default extras: weather (open-meteo, your
+  bypass). A window that isn't in a Space gets the generic page with a
+  pill for **every Space** — the last-used one leads as "Resume" — so
+  you can jump into a Space without opening the panel (a Space already
+  open elsewhere is focused instead). Optional, off-by-default extras:
+  weather (open-meteo, your
   coordinates only) and reachability dots for groups you mark internal.
 - **Keyboard shortcuts** — `Ctrl+Shift+.` / `Ctrl+Shift+,` cycle Spaces
   (customizable at `chrome://extensions/shortcuts`).

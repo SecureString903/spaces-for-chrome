@@ -225,6 +225,27 @@ export function loadFolderToBar(folderId, ownerSpaceId = null) {
   });
 }
 
+// When the last window showing a Space closes, no on-screen window claims
+// the bar any more: return its bookmarks to their folder so windows that
+// aren't in a Space get an empty bar. No-op unless that Space owns the bar.
+export function stashBarIfOwnedBy(spaceId) {
+  const mySeq = ++swapSeq; // a newer swap supersedes the stash (it stashes itself)
+  return enqueue(async () => {
+    try {
+      if (mySeq !== swapSeq) return;
+      if ((await getSettings()).bookmarkMode === 'off') return;
+      const store = await chrome.storage.local.get([K_BAR_OWNER, K_BAR_FOLDER]);
+      if (store[K_BAR_OWNER] !== spaceId) return;
+      const bar = await getBarNode();
+      if (!bar) return;
+      await stashBar(bar.id, await getSpaces(), spaceId, store[K_BAR_FOLDER]);
+      await chrome.storage.local.remove([K_BAR_OWNER, K_BAR_FOLDER]);
+    } catch (e) {
+      console.warn('Spaces: bar stash on window close failed', e);
+    }
+  });
+}
+
 // Keep the hidden folder's name in sync with the Space's name.
 export function renameSpaceFolder(spaceId, newName) {
   return enqueue(async () => {
