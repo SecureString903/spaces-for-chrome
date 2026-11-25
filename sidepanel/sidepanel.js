@@ -1013,12 +1013,13 @@ function initListeners() {
 // toggles by asking this page to close itself. The open/closed state is
 // tracked per window in session storage (cleared on pagehide so the
 // user closing the panel with Chrome's own ✕ is recorded too).
-async function markPanelOpen(open) {
+// One key per window, written in a single call: a dying page (toolbar
+// close) gets no time for a read-modify-write, and per-window keys keep
+// other windows' panels from re-broadcasting stale state.
+function markPanelOpen(open) {
   try {
-    const { openPanels = {} } = await chrome.storage.session.get('openPanels');
-    if (open) openPanels[windowId] = true;
-    else delete openPanels[windowId];
-    await chrome.storage.session.set({ openPanels });
+    if (open) chrome.storage.session.set({ ['panelOpen:' + windowId]: true }).catch(() => {});
+    else chrome.storage.session.remove('panelOpen:' + windowId).catch(() => {});
   } catch { /* toggle degrades to open-only */ }
 }
 

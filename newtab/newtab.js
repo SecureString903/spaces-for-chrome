@@ -564,28 +564,40 @@ function setupIO() {
   initWeather();
   setupIO();
   // ☰ toggles the side panel. Chrome has no sidePanel.close(), so the
-  // open panel closes itself when asked; its open-state is tracked in
-  // session storage. Opening must stay synchronous in the click (the
-  // user gesture), which is why the state is cached here instead of
-  // read at click time.
+  // open panel closes itself when asked; its open-state is tracked in a
+  // per-window session-storage key. Opening happens synchronously in
+  // the click (the user gesture), which is why the state is cached here
+  // instead of read at click time.
+  const panelKey = 'panelOpen:' + winId;
   let panelOpen = false;
   try {
-    const { openPanels = {} } = await chrome.storage.session.get('openPanels');
-    panelOpen = !!openPanels[winId];
+    const stored = await chrome.storage.session.get(panelKey);
+    panelOpen = !!stored[panelKey];
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === 'session' && changes.openPanels) {
-        panelOpen = !!changes.openPanels.newValue?.[winId];
+      if (area === 'session' && changes[panelKey]) {
+        panelOpen = !!changes[panelKey].newValue;
       }
     });
   } catch { /* toggle degrades to open-only */ }
-  $('#panel-btn').addEventListener('click', () => {
-    if (panelOpen) {
-      panelOpen = false; // optimistic; storage event confirms
-      chrome.runtime.sendMessage({ type: 'closeSidePanel', windowId: winId }).catch(() => {});
-    } else {
-      try {
-        chrome.sidePanel.open(winId != null ? { windowId: winId } : {});
-      } catch { /* API unavailable (e.g. harness) */ }
+  const openPanel = () => {
+    try {
+      chrome.sidePanel.open(winId != null ? { windowId: winId } : {});
+    } catch { /* API unavailable (e.g. harness) */ }
+  };
+  $('#panel-btn').addEventListener('click', async () => {
+    if (!panelOpen) {
+      openPanel();
+      return;
+    }
+    panelOpen = false;
+    try {
+      const res = await chrome.runtime.sendMessage({ type: 'closeSidePanel', windowId: winId });
+      // Only the live panel answers closed:true. Anything else means the
+      // open-state was stale — the click's transient activation usually
+      // still counts, so open instead of eating the click.
+      if (!res?.closed) openPanel();
+    } catch {
+      openPanel();
     }
   });
   $('#edit-btn').addEventListener('click', () => {

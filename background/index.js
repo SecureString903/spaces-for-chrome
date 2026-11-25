@@ -195,6 +195,8 @@ chrome.windows.onRemoved.addListener(async (windowId) => {
   // left stale ownership behind), check whether the bar's owner Space is
   // still on screen — if not, its bookmarks return to its folder.
   reconcileBarOwner();
+  // The window's side panel died with it; drop its open-state record.
+  chrome.storage.session.remove('panelOpen:' + windowId).catch(() => {});
 });
 
 chrome.commands.onCommand.addListener((command) => {
