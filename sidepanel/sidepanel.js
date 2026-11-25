@@ -408,7 +408,7 @@ function renderEditor(space = null) {
     class: 'name-input',
     placeholder: 'Homepage URL (optional)',
     value: space?.homepageUrl ?? '',
-    title: 'Used by integrations (e.g. a New Tab extension) as this Space’s homepage'
+    title: 'New tabs in this Space go straight to this URL instead of the start page (open the new tab with #edit to bypass)'
   });
 
   const form = el('div', { class: 'editor' },
