@@ -5,9 +5,11 @@
 
 import { getWinMap, getSpaces, getSettings, getIcons, getLastSpaceId } from '../background/state.js';
 
-const K_LINKS = 'linkGroups'; // { '*': Group[], generic: Group[], [spaceId]: Group[] }
-// Scopes: '*' shows everywhere, GENERIC only in windows outside any Space,
-// a Space id only in that Space. (Space ids are UUIDs, so no collision.)
+// Storage: a flat, ordered array of groups. Each group has `scopes`: a
+// list containing '*' (everywhere), GENERIC (only in windows outside any
+// Space), and/or Space ids — so one group can show in several Spaces.
+// (Earlier versions stored { scopeKey: Group[] }; migrated on first read.)
+const K_LINKS = 'linkGroups';
 const GENERIC = 'generic';
 const ACCENTS = ['#89b4fa', '#a6e3a1', '#cba6f7', '#fab387', '#94e2d5', '#f9e2af', '#f38ba8'];
 
@@ -20,22 +22,61 @@ let spacesCache = []; // for the scope dropdown in edit mode
 
 // ---------- data ----------
 
-async function getAllGroups() {
-  const { [K_LINKS]: all = {} } = await chrome.storage.local.get(K_LINKS);
-  return all;
+// Flatten the pre-multi-scope bucket shape, preserving the visual order
+// (explicit order weights first, then bucket order).
+function migrateBuckets(obj) {
+  const flat = [];
+  let i = 0;
+  for (const [key, groups] of Object.entries(obj)) {
+    for (const g of groups ?? []) {
+      flat.push({ ...g, scopes: [key], _k: typeof g.order === 'number' ? g.order : 1000 + i });
+      i++;
+    }
+  }
+  flat.sort((a, b) => a._k - b._k);
+  for (const g of flat) {
+    delete g._k;
+    delete g.order;
+  }
+  return flat;
 }
 
-async function saveScope(scopeKey, groups) {
-  const all = await getAllGroups();
-  if (groups.length) all[scopeKey] = groups;
-  else delete all[scopeKey];
-  await chrome.storage.local.set({ [K_LINKS]: all });
+async function getGroups() {
+  const { [K_LINKS]: stored } = await chrome.storage.local.get(K_LINKS);
+  if (Array.isArray(stored)) return stored;
+  if (stored && typeof stored === 'object') {
+    const flat = migrateBuckets(stored);
+    await chrome.storage.local.set({ [K_LINKS]: flat });
+    return flat;
+  }
+  return [];
 }
 
-// The scope this page's own groups live in: the Space, or the generic
-// bucket for windows outside any Space.
+function saveGroups(groups) {
+  return chrome.storage.local.set({ [K_LINKS]: groups });
+}
+
+// The scope key for this page: the Space's id, or the generic bucket for
+// windows outside any Space.
 function pageScope() {
   return currentSpace?.id ?? GENERIC;
+}
+
+function groupScopes(g) {
+  return g.scopes?.length ? g.scopes : ['*'];
+}
+
+function onThisPage(g) {
+  const s = groupScopes(g);
+  return s.includes('*') || s.includes(pageScope());
+}
+
+function scopeLabel(g) {
+  const s = groupScopes(g);
+  if (s.includes('*')) return 'everywhere';
+  return s
+    .map((k) => (k === GENERIC ? 'outside Spaces' : spacesCache.find((sp) => sp.id === k)?.name ?? '?'))
+    .join(' · ');
 }
 
 // ---------- clock & greeting ----------
@@ -222,17 +263,12 @@ function el(tag, props = {}, ...children) {
 async function render() {
   const main = $('#groups');
   main.replaceChildren();
-  const all = await getAllGroups();
-  // Entries carry their scope so edits write back to the right bucket.
-  const entries = [
-    ...(all['*'] ?? []).map((g, i) => ({ g, scope: '*', index: i })),
-    ...(all[pageScope()] ?? []).map((g, i) => ({ g, scope: pageScope(), index: i }))
-  ];
-  // Groups sort by their explicit order (set via the ▲▼ controls) and
-  // fall back to their natural position, so pages without any ordering
-  // keep the everywhere-then-scoped layout.
-  entries.forEach((e, i) => (e.pos = i));
-  entries.sort((a, b) => ((a.g.order ?? a.pos) - (b.g.order ?? b.pos)) || (a.pos - b.pos));
+  const groups = await getGroups();
+  // Normally only this page's groups; edit mode shows every group (the
+  // off-page ones dimmed) so any group can be re-scoped from anywhere.
+  const entries = groups
+    .map((g, i) => ({ g, index: i }))
+    .filter((e) => editing || onThisPage(e.g));
 
   const checks = [];
   entries.forEach((entry, gi) => {
@@ -243,6 +279,7 @@ async function render() {
     if (group.span === 'full') section.classList.add('wide');
     else if (group.span === 2) section.classList.add('span2');
     else if (gi === 0 && entries.length > 1) section.classList.add('wide');
+    if (editing && !onThisPage(group)) section.classList.add('off-page');
     section.style.animationDelay = gi * 70 + 'ms';
     const links = (group.links || []).filter((l) => l.url);
 
@@ -250,7 +287,11 @@ async function render() {
       section.appendChild(buildGroupEditor(entry, gi, entries));
     } else {
       const h2 = el('h2', {}, group.title || 'Links', el('span', { class: 'count' }, String(links.length)));
-      if (entry.scope === '*') h2.appendChild(el('span', { class: 'scope' }, 'everywhere'));
+      const s = groupScopes(group);
+      // Badge the scope unless it's exactly "this page only".
+      if (!(s.length === 1 && s[0] === pageScope())) {
+        h2.appendChild(el('span', { class: 'scope' }, scopeLabel(group)));
+      }
       section.appendChild(h2);
     }
 
@@ -293,62 +334,29 @@ async function render() {
 
 // ---------- editor ----------
 
-// Move the group at rendered position `gi` up or down one slot. Order is
-// a per-group weight, so this works across scopes: every group on this
-// page gets its rendered position written as its order, then the two
-// neighbours swap. (An everywhere group's order applies on every page.)
+// Swap the group at rendered position `gi` with its neighbour. Edit mode
+// renders the full flat list, so the swap is a swap in storage order too.
 async function moveGroup(renderedEntries, gi, dir) {
   const j = gi + dir;
   if (j < 0 || j >= renderedEntries.length) return;
-  const all = await getAllGroups();
-  const liveAt = (en) => all[en.scope]?.[en.index];
-  renderedEntries.forEach((en, i) => {
-    const g = liveAt(en);
-    if (g) g.order = i;
-  });
-  const a = liveAt(renderedEntries[gi]);
-  const b = liveAt(renderedEntries[j]);
-  if (a && b) {
-    a.order = j;
-    b.order = gi;
-  }
-  await chrome.storage.local.set({ [K_LINKS]: all });
+  const gs = await getGroups();
+  const a = renderedEntries[gi].index;
+  const b = renderedEntries[j].index;
+  if (!gs[a] || !gs[b]) return;
+  [gs[a], gs[b]] = [gs[b], gs[a]];
+  await saveGroups(gs);
   render();
 }
 
 function buildGroupEditor(entry, gi, renderedEntries) {
   const { g: group } = entry;
-  const key = entry.scope;
 
   const mutate = async (fn) => {
-    const all = await getAllGroups();
-    const groups = all[key] ?? [];
-    fn(groups);
-    await saveScope(key, groups);
+    const gs = await getGroups();
+    fn(gs);
+    await saveGroups(gs);
     render();
   };
-
-  // Move the group to another scope bucket (everywhere / generic / a Space).
-  const moveScope = async (newKey) => {
-    if (newKey === key) return;
-    const all = await getAllGroups();
-    const from = all[key] ?? [];
-    const [moved] = from.splice(entry.index, 1);
-    if (!moved) return;
-    if (from.length) all[key] = from;
-    else delete all[key];
-    (all[newKey] ??= []).push(moved);
-    await chrome.storage.local.set({ [K_LINKS]: all });
-    render();
-  };
-
-  const scopeSel = el('select', { class: 'g-select', title: 'Where this group appears' },
-    el('option', { value: '*' }, 'Everywhere'),
-    el('option', { value: GENERIC }, 'Outside Spaces'),
-    ...spacesCache.map((s) => el('option', { value: s.id }, 'Only ' + s.name))
-  );
-  scopeSel.value = key;
-  scopeSel.addEventListener('change', (e) => moveScope(e.target.value));
 
   const sizeSel = el('select', { class: 'g-select', title: 'How wide this group is' },
     el('option', { value: 'auto' }, 'Auto width'),
@@ -367,7 +375,6 @@ function buildGroupEditor(entry, gi, renderedEntries) {
       type: 'text', class: 'g-title', value: group.title ?? '', placeholder: 'Group title',
       onchange: (e) => mutate((gs) => { if (gs[entry.index]) gs[entry.index].title = e.target.value; })
     }),
-    scopeSel,
     sizeSel,
     el('button', { class: 'mini-btn', title: 'Move group up', onclick: () => moveGroup(renderedEntries, gi, -1) }, '▲'),
     el('button', { class: 'mini-btn', title: 'Move group down', onclick: () => moveGroup(renderedEntries, gi, 1) }, '▼'),
@@ -383,6 +390,35 @@ function buildGroupEditor(entry, gi, renderedEntries) {
       onclick: () => mutate((gs) => gs.splice(entry.index, 1))
     }, 'Delete group')
   );
+
+  // Where the group appears: Everywhere, or any mix of the generic page
+  // and specific Spaces. Unchecking everything falls back to this page.
+  const scopes = new Set(groupScopes(group));
+  const scopeRow = el('div', { class: 'g-scopes' }, el('span', { class: 'g-scopes-label' }, 'Show:'));
+  const targets = [
+    { id: '*', label: 'Everywhere' },
+    { id: GENERIC, label: 'Outside Spaces' },
+    ...spacesCache.map((s) => ({ id: s.id, label: s.name }))
+  ];
+  for (const t of targets) {
+    const cb = el('input', { type: 'checkbox', ...(scopes.has(t.id) ? { checked: '' } : {}) });
+    if (t.id !== '*' && scopes.has('*')) cb.disabled = true;
+    cb.addEventListener('change', () => mutate((gs) => {
+      const g = gs[entry.index];
+      if (!g) return;
+      let next = new Set(groupScopes(g));
+      if (t.id === '*') {
+        next = new Set([cb.checked ? '*' : pageScope()]);
+      } else {
+        if (cb.checked) next.add(t.id);
+        else next.delete(t.id);
+        next.delete('*');
+        if (!next.size) next.add(pageScope());
+      }
+      g.scopes = [...next];
+    }));
+    scopeRow.appendChild(el('label', {}, cb, t.label));
+  }
 
   const linksBox = el('div');
   (group.links ?? []).forEach((link, li) => {
@@ -408,18 +444,17 @@ function buildGroupEditor(entry, gi, renderedEntries) {
 
   const frag = document.createDocumentFragment();
   frag.appendChild(head);
+  frag.appendChild(scopeRow);
   frag.appendChild(linksBox);
   return frag;
 }
 
 async function addGroup() {
-  // New groups land in this page's own scope (the Space, or the generic
-  // page); the group's scope dropdown moves it elsewhere.
-  const key = pageScope();
-  const all = await getAllGroups();
-  const groups = all[key] ?? [];
-  groups.push({ title: 'New group', links: [{ name: '', url: '' }] });
-  await saveScope(key, groups);
+  // New groups start scoped to this page (the Space, or the generic
+  // page); the Show checkboxes widen it from there.
+  const gs = await getGroups();
+  gs.push({ title: 'New group', scopes: [pageScope()], links: [{ name: '', url: '' }] });
+  await saveGroups(gs);
   render();
 }
 
@@ -429,15 +464,16 @@ function setupIO() {
   const dialog = $('#io-dialog');
   $('#export-btn').addEventListener('click', async () => {
     $('#io-text').textContent =
-      'All link groups, by scope ("*" = everywhere, "generic" = outside Spaces, otherwise a Space id):';
-    $('#io-area').value = JSON.stringify(await getAllGroups(), null, 2);
+      'All link groups, in order. Each "scopes" lists where the group shows: "*" = everywhere, "generic" = outside Spaces, otherwise Space ids.';
+    $('#io-area').value = JSON.stringify(await getGroups(), null, 2);
     $('#io-ok').hidden = true;
     dialog.showModal();
   });
   $('#import-btn').addEventListener('click', () => {
-    $('#io-text').textContent = currentSpace
-      ? `Paste either a full export (object keyed by scope) or an array of groups to add to “${currentSpace.name}”.`
-      : 'Paste either a full export (object keyed by scope) or an array of groups to add to this generic page.';
+    $('#io-text').textContent =
+      'Paste an array of groups (added to the list; groups without "scopes" land on ' +
+      (currentSpace ? `“${currentSpace.name}”` : 'this generic page') +
+      ') or an old scope-keyed export (replaces everything).';
     $('#io-area').value = '';
     $('#io-ok').hidden = false;
     dialog.showModal();
@@ -447,11 +483,10 @@ function setupIO() {
     try {
       const parsed = JSON.parse($('#io-area').value);
       if (Array.isArray(parsed)) {
-        const key = pageScope();
-        const all = await getAllGroups();
-        await saveScope(key, [...(all[key] ?? []), ...parsed]);
+        const incoming = parsed.map((g) => ({ ...g, scopes: g.scopes?.length ? g.scopes : [pageScope()] }));
+        await saveGroups([...(await getGroups()), ...incoming]);
       } else if (parsed && typeof parsed === 'object') {
-        await chrome.storage.local.set({ [K_LINKS]: parsed });
+        await saveGroups(migrateBuckets(parsed));
       } else {
         throw new Error('not an object or array');
       }
@@ -528,6 +563,12 @@ function setupIO() {
   if (!space) renderResume().catch(() => {});
   initWeather();
   setupIO();
+  $('#panel-btn').addEventListener('click', () => {
+    // Must stay synchronous: sidePanel.open needs the click's user gesture.
+    try {
+      chrome.sidePanel.open(winId != null ? { windowId: winId } : {});
+    } catch { /* API unavailable (e.g. harness) */ }
+  });
   $('#edit-btn').addEventListener('click', () => {
     editing = !editing;
     document.body.classList.toggle('editing', editing);

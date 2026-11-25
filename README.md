@@ -40,10 +40,11 @@ place — one clean window per context.
   panel-only use is the sync-friendly choice for multi-computer profiles.
 - **Space-aware start page** — the New Tab page shows a clock, search,
   the current Space, and editable link groups with JSON import/export.
-  Each group has a scope — everywhere, one Space, or only the generic
-  page shown outside any Space — a width (auto, 2 columns, full row),
-  and ▲▼ ordering, all set in edit mode, so every Space (and the
-  no-Space page) gets its own dashboard. A Space with a homepage
+  Each group chooses where it shows — everywhere, any mix of Spaces,
+  or the generic page shown outside any Space — plus a width (auto,
+  2 columns, full row) and ▲▼ ordering, all set in edit mode, which
+  lists every group (off-page ones dimmed) so anything can be managed
+  from anywhere. A ☰ button opens the Spaces panel right from the page. A Space with a homepage
   URL sends every new tab straight there (open the page with `#edit` to
   bypass). A window that isn't in a Space gets the generic page with a
   pill for **every Space** — the last-used one leads as "Resume" — so

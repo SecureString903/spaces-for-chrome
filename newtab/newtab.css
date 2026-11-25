@@ -153,6 +153,15 @@ body.editing section { border-style: dashed; }
   color: var(--text); font: inherit; font-size: 0.78rem; padding: 4px 6px; max-width: 150px;
 }
 .g-controls .g-select option { background: var(--bg); color: var(--text); }
+.g-scopes {
+  display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center;
+  margin: 0 0 10px; font-size: 0.75rem; color: var(--muted);
+}
+.g-scopes label { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
+.g-scopes input:disabled + * { opacity: 0.5; }
+.g-scopes-label { color: var(--unk); letter-spacing: 0.5px; }
+section.off-page { opacity: 0.55; }
+section.off-page:hover { opacity: 0.85; }
 .g-controls label { display: inline-flex; gap: 5px; align-items: center; font-size: 0.75rem; color: var(--muted); cursor: pointer; }
 .link-edit { display: flex; gap: 6px; margin: 4px 0; }
 .link-edit input { flex: 1; min-width: 0; }

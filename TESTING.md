@@ -136,12 +136,16 @@ Panel section
       window open: it stays unmapped).
 - [ ] ✎ Edit: add a group (it lands in the current page's scope), add
       links, delete a link and a group; changes survive a new tab.
-- [ ] Scopes: the group dropdown moves a group between "Everywhere",
-      "Outside Spaces", and a specific Space — a Space group only shows
-      in its Space, an Outside-Spaces group only on the generic page,
-      an Everywhere group on all of them. Editing the generic page never
-      changes what a Space shows (and vice versa), except for Everywhere
-      groups.
+- [ ] Scopes: each group's "Show" checkboxes pick Everywhere, Outside
+      Spaces, and/or any mix of Spaces — a two-Space group shows in both
+      Spaces and nowhere else; Everywhere disables (and overrides) the
+      rest; unchecking everything falls back to the current page.
+- [ ] Edit mode lists every group from every scope (off-page ones
+      dimmed), so a group scoped elsewhere can be re-scoped from any
+      page. Leaving edit mode hides the off-page ones again.
+- [ ] ☰ Spaces in the footer opens the side panel.
+- [ ] Legacy data: a pre-0.12.1 scope-keyed linkGroups object (or JSON
+      import of one) migrates to the flat list with order preserved.
 - [ ] Size: the width dropdown (auto / 2 columns / full width) takes
       effect immediately; a lone full-width group fills the row instead
       of condensing left.
