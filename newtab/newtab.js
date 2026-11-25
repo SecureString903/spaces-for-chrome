@@ -106,14 +106,17 @@ async function initWeather() {
   };
   try {
     const cached = JSON.parse(localStorage.getItem('wx') || 'null');
-    if (cached && Date.now() - cached.t < 30 * 60e3) return show(cached);
+    if (cached && cached.c === settings.weatherCoords && Date.now() - cached.t < 30 * 60e3) {
+      return show(cached);
+    }
     const r = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${coords[0]}&longitude=${coords[1]}` +
       '&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min' +
       '&temperature_unit=fahrenheit&timezone=auto&forecast_days=1'
     );
     const d = await r.json();
-    const w = { t: Date.now(), temp: d.current.temperature_2m, code: d.current.weather_code,
+    const w = { t: Date.now(), c: settings.weatherCoords,
+      temp: d.current.temperature_2m, code: d.current.weather_code,
       hi: d.daily.temperature_2m_max[0], lo: d.daily.temperature_2m_min[0] };
     try { localStorage.setItem('wx', JSON.stringify(w)); } catch {}
     show(w);

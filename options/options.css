@@ -17,6 +17,9 @@
   font-weight: 600;
 }
 
+/* Author display rules would otherwise defeat the hidden attribute. */
+[hidden] { display: none !important; }
+
 .hint {
   display: block;
   color: var(--text-muted);

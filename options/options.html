@@ -90,9 +90,10 @@
       </label>
       <label class="number-row">
         Weather location
-        <input type="text" id="weatherCoords" class="url-input" placeholder="lat, lon — leave empty for no weather" />
+        <input type="text" id="weatherCoords" class="url-input" placeholder="city name or lat, lon — empty for no weather" />
       </label>
-      <p>With a location set, the start page fetches the forecast from open-meteo.com — your coordinates only, nothing else.</p>
+      <p id="weatherHint" class="hint" hidden></p>
+      <p>With a location set, the start page fetches the forecast from open-meteo.com — your coordinates only, nothing else. A place name is looked up once via open-meteo's geocoder and stored as coordinates.</p>
       <label class="radio-row">
         <input type="checkbox" id="statusChecks" />
         <span>

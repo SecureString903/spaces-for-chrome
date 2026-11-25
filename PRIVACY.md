@@ -46,9 +46,12 @@ Chrome settings do, and never to us.
 The Space-aware New Tab page has two features that make network requests
 **only if you turn them on** in Options:
 
-- **Weather** — if you enter coordinates, the start page requests the
-  forecast from `api.open-meteo.com`. Only the coordinates you typed are
-  sent; no account, no identifiers, no other data.
+- **Weather** — if you enter a location, the start page requests the
+  forecast from `api.open-meteo.com`. Only your stored coordinates are
+  sent; no account, no identifiers, no other data. If you type a place
+  name instead of coordinates, the options page sends that text once to
+  `geocoding-api.open-meteo.com` to convert it, and stores only the
+  resulting coordinates.
 - **Reachability dots** — if enabled, link groups you mark with "status
   dots" send a lightweight request to **the URLs you yourself added** (for
   example your homelab services) to show whether they're up. No other

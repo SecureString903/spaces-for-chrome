@@ -40,6 +40,43 @@ async function load() {
   checkRadio('chipStyle', s.chipStyle, DEFAULTS.chipStyle);
 }
 
+// The weather field takes "lat, lon" directly, or a place name that is
+// resolved to coordinates once (open-meteo's geocoder — the same opt-in
+// provider the forecast uses) and stored as coordinates.
+async function resolveWeatherInput() {
+  const input = document.querySelector('#weatherCoords');
+  const hint = document.querySelector('#weatherHint');
+  const text = input.value.trim();
+  hint.hidden = true;
+  if (!text) return '';
+  const parts = text.split(',').map((s) => parseFloat(s.trim()));
+  if (parts.length === 2 && parts.every(Number.isFinite)) return text;
+  hint.hidden = false;
+  hint.textContent = `Looking up “${text}”…`;
+  try {
+    const lookup = async (q) => {
+      const r = await fetch(
+        'https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&format=json&name=' +
+        encodeURIComponent(q)
+      );
+      return (await r.json()).results?.[0] ?? null;
+    };
+    // "City, State" often matches better as just "City".
+    const hit = (await lookup(text)) ?? (await lookup(text.split(',')[0].trim()));
+    if (!hit) {
+      hint.textContent = 'Place not found — try just the city name, or coordinates as “lat, lon”.';
+      return '';
+    }
+    const coords = `${hit.latitude.toFixed(4)}, ${hit.longitude.toFixed(4)}`;
+    input.value = coords;
+    hint.textContent = `Using ${[hit.name, hit.admin1, hit.country].filter(Boolean).join(', ')} (${coords})`;
+    return coords;
+  } catch {
+    hint.textContent = 'Lookup failed (offline?) — enter coordinates as “lat, lon”.';
+    return '';
+  }
+}
+
 async function save() {
   const settings = {
     bookmarkMode: document.querySelector('input[name="bookmarkMode"]:checked')?.value ?? 'switch',
@@ -47,7 +84,7 @@ async function save() {
     maxBackups: Math.min(50, Math.max(1, Number(document.querySelector('#maxBackups').value) || 15)),
     chipStyle: document.querySelector('input[name="chipStyle"]:checked')?.value ?? 'name',
     greetingName: document.querySelector('#greetingName').value.trim(),
-    weatherCoords: document.querySelector('#weatherCoords').value.trim(),
+    weatherCoords: await resolveWeatherInput(),
     statusChecks: document.querySelector('#statusChecks').checked
   };
   await chrome.storage.sync.set({ settings });
