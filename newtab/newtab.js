@@ -228,6 +228,11 @@ async function render() {
     ...(all['*'] ?? []).map((g, i) => ({ g, scope: '*', index: i })),
     ...(all[pageScope()] ?? []).map((g, i) => ({ g, scope: pageScope(), index: i }))
   ];
+  // Groups sort by their explicit order (set via the ▲▼ controls) and
+  // fall back to their natural position, so pages without any ordering
+  // keep the everywhere-then-scoped layout.
+  entries.forEach((e, i) => (e.pos = i));
+  entries.sort((a, b) => ((a.g.order ?? a.pos) - (b.g.order ?? b.pos)) || (a.pos - b.pos));
 
   const checks = [];
   entries.forEach((entry, gi) => {
@@ -242,7 +247,7 @@ async function render() {
     const links = (group.links || []).filter((l) => l.url);
 
     if (editing) {
-      section.appendChild(buildGroupEditor(entry));
+      section.appendChild(buildGroupEditor(entry, gi, entries));
     } else {
       const h2 = el('h2', {}, group.title || 'Links', el('span', { class: 'count' }, String(links.length)));
       if (entry.scope === '*') h2.appendChild(el('span', { class: 'scope' }, 'everywhere'));
@@ -288,7 +293,30 @@ async function render() {
 
 // ---------- editor ----------
 
-function buildGroupEditor(entry) {
+// Move the group at rendered position `gi` up or down one slot. Order is
+// a per-group weight, so this works across scopes: every group on this
+// page gets its rendered position written as its order, then the two
+// neighbours swap. (An everywhere group's order applies on every page.)
+async function moveGroup(renderedEntries, gi, dir) {
+  const j = gi + dir;
+  if (j < 0 || j >= renderedEntries.length) return;
+  const all = await getAllGroups();
+  const liveAt = (en) => all[en.scope]?.[en.index];
+  renderedEntries.forEach((en, i) => {
+    const g = liveAt(en);
+    if (g) g.order = i;
+  });
+  const a = liveAt(renderedEntries[gi]);
+  const b = liveAt(renderedEntries[j]);
+  if (a && b) {
+    a.order = j;
+    b.order = gi;
+  }
+  await chrome.storage.local.set({ [K_LINKS]: all });
+  render();
+}
+
+function buildGroupEditor(entry, gi, renderedEntries) {
   const { g: group } = entry;
   const key = entry.scope;
 
@@ -341,6 +369,8 @@ function buildGroupEditor(entry) {
     }),
     scopeSel,
     sizeSel,
+    el('button', { class: 'mini-btn', title: 'Move group up', onclick: () => moveGroup(renderedEntries, gi, -1) }, '▲'),
+    el('button', { class: 'mini-btn', title: 'Move group down', onclick: () => moveGroup(renderedEntries, gi, 1) }, '▼'),
     el('label', {},
       el('input', {
         type: 'checkbox', ...(group.internal ? { checked: '' } : {}),

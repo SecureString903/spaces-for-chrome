@@ -145,6 +145,9 @@ Panel section
 - [ ] Size: the width dropdown (auto / 2 columns / full width) takes
       effect immediately; a lone full-width group fills the row instead
       of condensing left.
+- [ ] Order: ▲/▼ move a group one slot, including past a group from
+      another scope (e.g. a Space group above an Everywhere group); the
+      order survives a new tab.
 - [ ] Set a homepage URL on a Space: Ctrl+T in that Space goes straight
       there; opening the new tab page with `#edit` bypasses the redirect.
 - [ ] With weather/status unset (defaults), the page makes zero network

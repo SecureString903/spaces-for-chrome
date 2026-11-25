@@ -41,9 +41,9 @@ place — one clean window per context.
 - **Space-aware start page** — the New Tab page shows a clock, search,
   the current Space, and editable link groups with JSON import/export.
   Each group has a scope — everywhere, one Space, or only the generic
-  page shown outside any Space — and a width (auto, 2 columns, full
-  row), both set in edit mode, so every Space (and the no-Space page)
-  gets its own dashboard. A Space with a homepage
+  page shown outside any Space — a width (auto, 2 columns, full row),
+  and ▲▼ ordering, all set in edit mode, so every Space (and the
+  no-Space page) gets its own dashboard. A Space with a homepage
   URL sends every new tab straight there (open the page with `#edit` to
   bypass). A window that isn't in a Space gets the generic page with a
   pill for **every Space** — the last-used one leads as "Resume" — so
