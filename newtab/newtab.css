@@ -148,6 +148,11 @@ body.editing section { border-style: dashed; }
   color: var(--text); font: inherit; font-size: 0.82rem; padding: 5px 9px; min-width: 0;
 }
 .g-controls .g-title { flex: 1; }
+.g-controls .g-select {
+  background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font: inherit; font-size: 0.78rem; padding: 4px 6px; max-width: 150px;
+}
+.g-controls .g-select option { background: var(--bg); color: var(--text); }
 .g-controls label { display: inline-flex; gap: 5px; align-items: center; font-size: 0.75rem; color: var(--muted); cursor: pointer; }
 .link-edit { display: flex; gap: 6px; margin: 4px 0; }
 .link-edit input { flex: 1; min-width: 0; }

@@ -134,10 +134,17 @@ Panel section
 - [ ] **[R]** A fresh blank window is never silently adopted into a Space
       whose snapshot is just a new tab (reload the extension with such a
       window open: it stays unmapped).
-- [ ] ✎ Edit: add a group (choosing per-Space vs all-Spaces), add links,
-      delete a link and a group; changes survive a new tab.
-- [ ] A per-Space group only appears in its Space; an all-Spaces group
-      appears everywhere.
+- [ ] ✎ Edit: add a group (it lands in the current page's scope), add
+      links, delete a link and a group; changes survive a new tab.
+- [ ] Scopes: the group dropdown moves a group between "Everywhere",
+      "Outside Spaces", and a specific Space — a Space group only shows
+      in its Space, an Outside-Spaces group only on the generic page,
+      an Everywhere group on all of them. Editing the generic page never
+      changes what a Space shows (and vice versa), except for Everywhere
+      groups.
+- [ ] Size: the width dropdown (auto / 2 columns / full width) takes
+      effect immediately; a lone full-width group fills the row instead
+      of condensing left.
 - [ ] Set a homepage URL on a Space: Ctrl+T in that Space goes straight
       there; opening the new tab page with `#edit` bypasses the redirect.
 - [ ] With weather/status unset (defaults), the page makes zero network

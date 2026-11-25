@@ -5,7 +5,10 @@
 
 import { getWinMap, getSpaces, getSettings, getIcons, getLastSpaceId } from '../background/state.js';
 
-const K_LINKS = 'linkGroups'; // { '*': Group[], [spaceId]: Group[] }
+const K_LINKS = 'linkGroups'; // { '*': Group[], generic: Group[], [spaceId]: Group[] }
+// Scopes: '*' shows everywhere, GENERIC only in windows outside any Space,
+// a Space id only in that Space. (Space ids are UUIDs, so no collision.)
+const GENERIC = 'generic';
 const ACCENTS = ['#89b4fa', '#a6e3a1', '#cba6f7', '#fab387', '#94e2d5', '#f9e2af', '#f38ba8'];
 
 const $ = (sel) => document.querySelector(sel);
@@ -13,6 +16,7 @@ const $ = (sel) => document.querySelector(sel);
 let currentSpace = null;
 let settings = null;
 let editing = false;
+let spacesCache = []; // for the scope dropdown in edit mode
 
 // ---------- data ----------
 
@@ -28,8 +32,10 @@ async function saveScope(scopeKey, groups) {
   await chrome.storage.local.set({ [K_LINKS]: all });
 }
 
-function scopeKey(global) {
-  return global ? '*' : currentSpace?.id ?? '*';
+// The scope this page's own groups live in: the Space, or the generic
+// bucket for windows outside any Space.
+function pageScope() {
+  return currentSpace?.id ?? GENERIC;
 }
 
 // ---------- clock & greeting ----------
@@ -219,8 +225,8 @@ async function render() {
   const all = await getAllGroups();
   // Entries carry their scope so edits write back to the right bucket.
   const entries = [
-    ...(all['*'] ?? []).map((g, i) => ({ g, global: true, index: i })),
-    ...((currentSpace && all[currentSpace.id]) ?? []).map((g, i) => ({ g, global: false, index: i }))
+    ...(all['*'] ?? []).map((g, i) => ({ g, scope: '*', index: i })),
+    ...(all[pageScope()] ?? []).map((g, i) => ({ g, scope: pageScope(), index: i }))
   ];
 
   const checks = [];
@@ -228,8 +234,10 @@ async function render() {
     const { g: group } = entry;
     const section = el('section');
     section.style.setProperty('--accent', group.accent || ACCENTS[gi % ACCENTS.length]);
-    if (gi === 0 && entries.length > 1) section.classList.add('wide');
-    if (group.span === 2) section.classList.add('span2');
+    // Explicit size wins; otherwise the first of several groups goes wide.
+    if (group.span === 'full') section.classList.add('wide');
+    else if (group.span === 2) section.classList.add('span2');
+    else if (gi === 0 && entries.length > 1) section.classList.add('wide');
     section.style.animationDelay = gi * 70 + 'ms';
     const links = (group.links || []).filter((l) => l.url);
 
@@ -237,7 +245,7 @@ async function render() {
       section.appendChild(buildGroupEditor(entry));
     } else {
       const h2 = el('h2', {}, group.title || 'Links', el('span', { class: 'count' }, String(links.length)));
-      if (entry.global && currentSpace) h2.appendChild(el('span', { class: 'scope' }, 'all Spaces'));
+      if (entry.scope === '*') h2.appendChild(el('span', { class: 'scope' }, 'everywhere'));
       section.appendChild(h2);
     }
 
@@ -282,7 +290,7 @@ async function render() {
 
 function buildGroupEditor(entry) {
   const { g: group } = entry;
-  const key = scopeKey(entry.global);
+  const key = entry.scope;
 
   const mutate = async (fn) => {
     const all = await getAllGroups();
@@ -292,11 +300,47 @@ function buildGroupEditor(entry) {
     render();
   };
 
+  // Move the group to another scope bucket (everywhere / generic / a Space).
+  const moveScope = async (newKey) => {
+    if (newKey === key) return;
+    const all = await getAllGroups();
+    const from = all[key] ?? [];
+    const [moved] = from.splice(entry.index, 1);
+    if (!moved) return;
+    if (from.length) all[key] = from;
+    else delete all[key];
+    (all[newKey] ??= []).push(moved);
+    await chrome.storage.local.set({ [K_LINKS]: all });
+    render();
+  };
+
+  const scopeSel = el('select', { class: 'g-select', title: 'Where this group appears' },
+    el('option', { value: '*' }, 'Everywhere'),
+    el('option', { value: GENERIC }, 'Outside Spaces'),
+    ...spacesCache.map((s) => el('option', { value: s.id }, 'Only ' + s.name))
+  );
+  scopeSel.value = key;
+  scopeSel.addEventListener('change', (e) => moveScope(e.target.value));
+
+  const sizeSel = el('select', { class: 'g-select', title: 'How wide this group is' },
+    el('option', { value: 'auto' }, 'Auto width'),
+    el('option', { value: '2' }, '2 columns'),
+    el('option', { value: 'full' }, 'Full width')
+  );
+  sizeSel.value = group.span === 'full' ? 'full' : group.span === 2 ? '2' : 'auto';
+  sizeSel.addEventListener('change', (e) => mutate((gs) => {
+    if (!gs[entry.index]) return;
+    if (e.target.value === 'auto') delete gs[entry.index].span;
+    else gs[entry.index].span = e.target.value === 'full' ? 'full' : 2;
+  }));
+
   const head = el('div', { class: 'g-controls' },
     el('input', {
       type: 'text', class: 'g-title', value: group.title ?? '', placeholder: 'Group title',
       onchange: (e) => mutate((gs) => { if (gs[entry.index]) gs[entry.index].title = e.target.value; })
     }),
+    scopeSel,
+    sizeSel,
     el('label', {},
       el('input', {
         type: 'checkbox', ...(group.internal ? { checked: '' } : {}),
@@ -339,10 +383,9 @@ function buildGroupEditor(entry) {
 }
 
 async function addGroup() {
-  const global = currentSpace
-    ? !confirm(`Add this group only to the “${currentSpace.name}” Space?\n\nOK = only ${currentSpace.name} · Cancel = all Spaces`)
-    : true;
-  const key = scopeKey(global);
+  // New groups land in this page's own scope (the Space, or the generic
+  // page); the group's scope dropdown moves it elsewhere.
+  const key = pageScope();
   const all = await getAllGroups();
   const groups = all[key] ?? [];
   groups.push({ title: 'New group', links: [{ name: '', url: '' }] });
@@ -355,7 +398,8 @@ async function addGroup() {
 function setupIO() {
   const dialog = $('#io-dialog');
   $('#export-btn').addEventListener('click', async () => {
-    $('#io-text').textContent = 'All link groups, by scope ("*" = all Spaces, otherwise a Space id):';
+    $('#io-text').textContent =
+      'All link groups, by scope ("*" = everywhere, "generic" = outside Spaces, otherwise a Space id):';
     $('#io-area').value = JSON.stringify(await getAllGroups(), null, 2);
     $('#io-ok').hidden = true;
     dialog.showModal();
@@ -363,7 +407,7 @@ function setupIO() {
   $('#import-btn').addEventListener('click', () => {
     $('#io-text').textContent = currentSpace
       ? `Paste either a full export (object keyed by scope) or an array of groups to add to “${currentSpace.name}”.`
-      : 'Paste either a full export (object keyed by scope) or an array of groups to add to all Spaces.';
+      : 'Paste either a full export (object keyed by scope) or an array of groups to add to this generic page.';
     $('#io-area').value = '';
     $('#io-ok').hidden = false;
     dialog.showModal();
@@ -373,7 +417,7 @@ function setupIO() {
     try {
       const parsed = JSON.parse($('#io-area').value);
       if (Array.isArray(parsed)) {
-        const key = scopeKey(false);
+        const key = pageScope();
         const all = await getAllGroups();
         await saveScope(key, [...(all[key] ?? []), ...parsed]);
       } else if (parsed && typeof parsed === 'object') {
@@ -407,11 +451,12 @@ function setupIO() {
   let space = null;
   let winId = null;
   try {
+    spacesCache = await getSpaces();
     const win = await chrome.windows.getCurrent();
     winId = win.id;
     const map = await getWinMap();
     const spaceId = map[win.id];
-    if (spaceId) space = (await getSpaces()).find((s) => s.id === spaceId) ?? null;
+    if (spaceId) space = spacesCache.find((s) => s.id === spaceId) ?? null;
   } catch { /* render spaceless */ }
   currentSpace = space;
 
