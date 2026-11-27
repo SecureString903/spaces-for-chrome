@@ -53,6 +53,9 @@ WHAT IT DOES
   a Space a homepage URL and new tabs in that Space go straight there.
   Optional extras (weather, reachability dots for homelab links) are off
   by default and clearly disclosed.
+• Make it yours — dark, light, or match-system theme over animated
+  glass, a solid color, or your own photo (kept on your device, never
+  uploaded).
 
 NOTE FOR MULTI-COMPUTER USE: Chrome syncs bookmarks, so bookmarks bar
 swaps follow your profile to other computers. If you use several
