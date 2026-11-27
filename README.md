@@ -1,5 +1,7 @@
 # Spaces — Workspaces for Chrome
 
+[**Install from the Chrome Web Store**](https://chromewebstore.google.com/detail/jdjcfaiafbecejboconfcfamghlmmpjc)
+
 Shift-style Spaces, natively in Chrome. Each Space is a named context (Work,
 Personal, Project X…) with its own set of tabs. Switching Spaces saves and
 closes the current window's tabs and opens the new Space's tabs in their
@@ -68,7 +70,12 @@ leaves the browser. Spaces are deliberately **per-machine**: your tabs,
 Spaces, icons, and backups stay on this computer. Only the options-page
 preferences roam between your Chrome installs via Chrome sync.
 
-## Install (unpacked)
+## Install
+
+The easy way: [Spaces — Workspaces for Chrome on the Chrome Web
+Store](https://chromewebstore.google.com/detail/jdjcfaiafbecejboconfcfamghlmmpjc).
+
+To run from source instead (unpacked):
 
 1. Open `chrome://extensions`.
 2. Turn on **Developer mode** (top right).
